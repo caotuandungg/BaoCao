@@ -28,6 +28,13 @@ Cụm được thiết kế với **3 node Control-Plane** (Master nodes) hoạt
 > ```bash
 > kubectl get nodes -l node-role.kubernetes.io/control-plane=true -o wide
 > ```
+> **Kết quả thực tế:**
+> ```text
+> NAME   STATUS   ROLES                       AGE   VERSION          INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION     CONTAINER-RUNTIME
+> cp01   Ready    control-plane,etcd,master   50d   v1.33.6+rke2r1   172.18.0.51   <none>        Ubuntu 24.04.3 LTS   6.8.0-90-generic   containerd://2.1.5-k3s1
+> cp02   Ready    control-plane,etcd,master   50d   v1.33.6+rke2r1   172.18.0.52   <none>        Ubuntu 24.04.3 LTS   6.8.0-90-generic   containerd://2.1.5-k3s1
+> cp03   Ready    control-plane,etcd,master   50d   v1.33.6+rke2r1   172.18.0.53   <none>        Ubuntu 24.04.3 LTS   6.8.0-90-generic   containerd://2.1.5-k3s1
+> ```
 
 ### 1.2. Cụm etcd phân tán (Stacked etcd) và Cơ chế Quorum
 RKE2 cấu hình cơ sở dữ liệu `etcd` chạy ngầm trực tiếp trên 3 node Control-Plane này.
@@ -38,6 +45,13 @@ etcd sử dụng thuật toán đồng thuận **Raft**. Để cụm ra quyết 
 > 💡 **Lệnh kiểm chứng thực tế (Xem các pod etcd đang chạy):**
 > ```bash
 > kubectl get pods -n kube-system -l component=etcd -o wide
+> ```
+> **Kết quả thực tế:**
+> ```text
+> NAME        READY   STATUS    RESTARTS   AGE   IP            NODE   NOMINATED NODE   READINESS GATES
+> etcd-cp01   1/1     Running   0          50d   172.18.0.51   cp01   <none>           <none>
+> etcd-cp02   1/1     Running   0          50d   172.18.0.52   cp02   <none>           <none>
+> etcd-cp03   1/1     Running   0          50d   172.18.0.53   cp03   <none>           <none>
 > ```
 
 ### 1.3. Cân bằng tải cho API Server (Load Balancing) & Daemonset Proxy
@@ -67,6 +81,12 @@ Là máy chủ phân giải tên miền (DNS) gắn liền của cụm Kubernete
 > # Xem danh sách Pod CoreDNS gắn liền IP và Node
 > kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide
 > ```
+> **Kết quả thực tế:**
+> ```text
+> NAME                                         READY   STATUS    RESTARTS   AGE   IP             NODE   NOMINATED NODE   READINESS GATES
+> rke2-coredns-rke2-coredns-85d6696775-865ss   1/1     Running   0          50d   10.100.0.193   cp01   <none>           <none>
+> rke2-coredns-rke2-coredns-85d6696775-jcgrc   1/1     Running   0          50d   10.100.1.193   cp02   <none>           <none>
+> ```
 
 ### 2.2. CIDR Network (Dải mạng Cluster và Service)
 - **Pod CIDR:** Đây là một Dải IP mạng ảo (Virtual IP Pool) cấp định tuyến nội bộ, sau đó cắt nhỏ (Subnet routing) để gán IP cho các Pods (thường dải `10.42.0.0/16` hoặc `10.100.0.0/16`).
@@ -79,13 +99,24 @@ Là máy chủ phân giải tên miền (DNS) gắn liền của cụm Kubernete
 > - **Pod CIDR:** Cụm đang sử dụng dải **`10.100.0.0/16`**. Mỗi Node được cấp một dải con `/24` (Ví dụ: `10.100.0.0/24`, `10.100.1.0/24`...) để gán IP cho các Pod chạy trên đó.
 > - **Service CIDR:** Cụm đang sử dụng dải **`10.101.0.0/16`**. IP của dịch vụ CoreDNS (`10.101.0.10`) và Service hệ thống (`10.101.0.1`) đều nằm trong dải này.
 
-> 💡 **Lệnh kiểm chứng mạng CIDR thực tế:**
 > ```bash
 > # Xem dải IP Pod (PodCIDR) cấp cho từng Node
 > kubectl get nodes -o custom-columns="NAME:.metadata.name,POD-CIDR:.spec.podCIDR"
 > 
 > # Xem IP của Service mặc định "kubernetes" để xác định dải Service CIDR
 > kubectl get svc kubernetes -o jsonpath='{.spec.clusterIP}'
+> ```
+> **Kết quả thực tế:**
+> ```text
+> NAME   POD-CIDR
+> cp01   10.100.0.0/24
+> cp02   10.100.1.0/24
+> cp03   10.100.2.0/24
+> wk01   10.100.4.0/24
+> wk02   10.100.3.0/24
+> wk03   10.100.5.0/24
+> 
+> Service ClusterIP: 10.101.0.1
 > ```
 
 ### 2.3. CNI Plugin (Container Network Interface)
@@ -105,6 +136,19 @@ Là tiêu chuẩn xử lý chuyện gán IP động cho container (IPAM) và thi
 > 
 > # Kiểm tra chi tiết IP và Node mà các Pod Cilium đang chiếm giữ
 > kubectl get pods -n kube-system -l k8s-app=cilium -o wide
+> ```
+> **Kết quả thực tế:**
+> ```text
+> NAME     DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR            AGE
+> cilium   6         6         6       6            6           kubernetes.io/os=linux   50d
+> 
+> NAME           READY   STATUS    RESTARTS   AGE   IP            NODE   NOMINATED NODE   READINESS GATES
+> cilium-4qqbf   1/1     Running   0          50d   172.18.0.51   cp01   <none>           <none>
+> cilium-7dqkx   1/1     Running   0          50d   172.18.0.61   wk01   <none>           <none>
+> cilium-ftr8g   1/1     Running   0          50d   172.18.0.53   cp03   <none>           <none>
+> cilium-p9q9t   1/1     Running   0          50d   172.18.0.52   cp02   <none>           <none>
+> cilium-sjdhc   1/1     Running   0          50d   172.18.0.63   wk03   <none>           <none>
+> cilium-zh4zh   1/1     Running   0          50d   172.18.0.62   wk02   <none>           <none>
 > ```
 
 ---
