@@ -113,37 +113,16 @@ Là tiêu chuẩn xử lý chuyện gán IP động cho container (IPAM) và thi
 
 Sơ đồ kết nối mạng tiêu chuẩn phân tách rõ luồng giao thông **Bắc-Nam (North-South)** và **Đông-Tây (East-West)** trong kiến trúc Cluster của công ty (Kèm CNI Cilium và RKE2 kube-vip).
 
-### 3.1 Sơ đồ tư duy (Luồng dữ liệu)
+![Network Topology](NetworkK8sTopo.drawio.png)
 
-```text
- [ Admin / Kỹ sư ]                                  [ End-User / Khách hàng ] 
-        | (Kubeconfig)                                         | (HTTPS / Web Traffic)
-        |                                                      |
-        v                                                      v
-[ Kube-vip (VIP: 6443) ]                           [ External Load Balancer ] 
-        |                                                      | (Port 80/443)
-        +-----------------------+                              |
-        |      (NORTH-SOUTH)    |                              v
-        v                       v                 [ Ingress Controller (Worker) ]
-  [ Master 1 ]            [ Master 2 ]                         | (Route theo Domain)
- (API Server)            (API Server)                          |
-                                                               v
-                                                      [ Service (ClusterIP) ]
-                                                               |
-    -----------------------------------------------------------+-------
-    |                                                                 |
-    v                                                                 v
-[ Pod Frontend ] <======( EAST-WEST / CILIUM OVERLAY )======> [ Pod Backend ]
- (Worker Node 1)                                               (Worker Node 2)
-```
+
+### 3.1 File thiết kế sơ đồ gốc (Draw.io)
+Công ty có thể mở, chỉnh sửa và xuất ảnh sơ đồ chuyên nghiệp từ file thiết kế gốc tại đây:
+👉 **[NetworkK8sTopo.drawio](file:///c:/Users/Admin/Desktop/k8s/NetworkK8sTopo.drawio)**
 
 **Chú thích luồng mạng:**
 *   **North-South Traffic (Luồng Bắc-Nam - Dọc):** Người dùng từ ngoài Internet truy cập vào ứng dụng thông qua Load Balancer và Ingress Controller để đẩy traffic xuống Pod. Hoặc Quản trị viên truy cập vào API Server thông qua `kube-vip`. Control Plane (Master Node) KHÔNG xử lý traffic của người dùng cuối.
 *   **East-West Traffic (Luồng Đông-Tây - Ngang):** Giao tiếp nội bộ giữa các Pod với nhau (VD: Frontend gọi Backend). Giao tiếp này chạy ngầm bên dưới thông qua mạng ảo Overlay Network do CNI Cilium thiết lập.
-
-### 3.2 File thiết kế sơ đồ gốc (Draw.io)
-Công ty có thể mở, chỉnh sửa và xuất ảnh sơ đồ chuyên nghiệp từ file thiết kế gốc tại đây:
-👉 **[NetworkK8sTopo.drawio](file:///c:/Users/Admin/Desktop/k8s/NetworkK8sTopo.drawio)**
 
 ---
 
