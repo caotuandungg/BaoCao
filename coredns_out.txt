@@ -1,3 +1,0 @@
-NAME                                         READY   STATUS    RESTARTS   AGE   IP             NODE   NOMINATED NODE   READINESS GATES
-rke2-coredns-rke2-coredns-85d6696775-865ss   1/1     Running   0          50d   10.100.0.193   cp01   <none>           <none>
-rke2-coredns-rke2-coredns-85d6696775-jcgrc   1/1     Running   0          50d   10.100.1.193   cp02   <none>           <none>

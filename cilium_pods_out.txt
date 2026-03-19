@@ -1,7 +1,0 @@
-NAME           READY   STATUS    RESTARTS   AGE   IP            NODE   NOMINATED NODE   READINESS GATES
-cilium-4qqbf   1/1     Running   0          50d   172.18.0.51   cp01   <none>           <none>
-cilium-7dqkx   1/1     Running   0          50d   172.18.0.61   wk01   <none>           <none>
-cilium-ftr8g   1/1     Running   0          50d   172.18.0.53   cp03   <none>           <none>
-cilium-p9q9t   1/1     Running   0          50d   172.18.0.52   cp02   <none>           <none>
-cilium-sjdhc   1/1     Running   0          50d   172.18.0.63   wk03   <none>           <none>
-cilium-zh4zh   1/1     Running   0          50d   172.18.0.62   wk02   <none>           <none>

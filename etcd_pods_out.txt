@@ -1,4 +1,0 @@
-NAME        READY   STATUS    RESTARTS   AGE   IP            NODE   NOMINATED NODE   READINESS GATES
-etcd-cp01   1/1     Running   0          50d   172.18.0.51   cp01   <none>           <none>
-etcd-cp02   1/1     Running   0          50d   172.18.0.52   cp02   <none>           <none>
-etcd-cp03   1/1     Running   0          50d   172.18.0.53   cp03   <none>           <none>

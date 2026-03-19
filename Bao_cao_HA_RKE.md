@@ -1,18 +1,8 @@
-# Báo cáo Thực tế: Kiến trúc HA, Core Concepts và Network Topology trong RKE/K8s
+# Báo cáo Thực tế: Kiến trúc HA, Core Concepts và Network Topology trong Kube Api Server/K8s
 
 *(Tài liệu này giải thích lý thuyết dựa trên trích dẫn Docs chuẩn của Kubernetes (K8s) và kèm theo các lệnh (`kubectl`) để công ty trực tiếp kiểm chứng trên Cụm K8s chạy RKE2 thực tế.)*
 
 ---
-
-## 0. RKE và RKE2 là gì?
-Trước khi đi vào chi tiết kỹ thuật, ta cần hiểu về nền tảng đang chạy:
-
-*   **RKE (Rancher Kubernetes Engine):** Là một bộ phân phối Kubernetes (K8s distribution) gọn nhẹ, đạt chuẩn CNCF, được Rancher Labs phát triển. Đặc điểm lớn nhất của RKE đời đầu là chạy toàn bộ các thành phần K8s (apiserver, etcd...) bên trong các Docker container.
-*   **RKE2 (RKE Government):** Đây là phiên bản kế thừa của RKE và cũng chính là phiên bản mà **cụm của công ty đang sử dụng** (`v1.33.6+rke2r1`).
-    *   **Bản chất cài đặt:** RKE2 **không tự nhiên có sẵn** hay được tích hợp mặc định vào hệ điều hành (như Ubuntu). Nó là một **bộ cài đặt (Installer)** hoặc **bộ phân phối (Distribution)** mà quản trị viên phải tải về và chạy trên từng Node. Sau khi chạy, RKE2 sẽ tự động tải các "nguyên liệu" (container image) cần thiết để "nấu" thành một cụm Kubernetes hoàn chỉnh.
-    *   **Bảo mật vượt trội:** RKE2 được thiết kế tập trung vào tính bảo mật và tuân thủ các tiêu chuẩn chính phủ (như FIPS 140-2).
-    *   **Không phụ thuộc Docker:** Khác với RKE, RKE2 sử dụng `containerd` trực tiếp thay vì Docker, giúp giảm bớt các lớp trung gian không cần thiết.
-    *   **Kế thừa từ K3s:** RKE2 lấy những ưu điểm về sự đơn giản, dễ cài đặt của K3s nhưng lại tối ưu cho các hệ thống Enterprise (Doanh nghiệp lớn) cần độ tin cậy và bảo mật cao.
 
 ---
 
@@ -63,30 +53,46 @@ etcd sử dụng thuật toán đồng thuận **Raft**. Để cụm ra quyết 
 ## 2. Các Core Concepts (Khái niệm cốt lõi cần làm rõ)
 
 ### 2.1. CoreDNS
-Là máy chủ phân giải tên miền (DNS) gắn liền của cụm Kubernetes. CoreDNS giúp Service và Pod giao tiếp với nhau bằng Domain Name (VD: `service-name.namespace.svc.cluster.local`) thay vì dùng địa chỉ IP.
-> 📖 **Trích dẫn từ K8s Docs (DNS for Services and Pods):**
-> *"Kubernetes publishes information about Pods and Services which is used to program DNS. kubelet configures Pods' DNS so that running containers can look up Services by name rather than IP. Services defined in the cluster are assigned DNS names. By default, a client Pod's DNS search list includes the Pod's own namespace and the cluster's default domain."* ([Link](https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/))
+Là máy chủ phân giải tên miền (DNS) tiêu chuẩn của cụm Kubernetes. CoreDNS giúp Service và Pod giao tiếp với nhau bằng Domain Name thay vì địa chỉ IP biến động.
 
-> 💡 **Thông tin thực tế trong cụm của công ty:**
-> Hiện tại, cụm đang chạy **2 Pod CoreDNS** để đảm bảo High Availability (HA) theo cơ chế ReplicaSet và 1 Pod Autoscaler, cùng cấp phát IP Dịch vụ (`ClusterIP`) là `10.101.0.10` ra toàn cụm K8s. Cụ thể:
-> 
-> | Tên Pod (Namespace: kube-system) | Trạng thái | IP Thực tế | Node Đang Chạy |
-> |---|---|---|---|
-> | `rke2-coredns-rke2-coredns-85d6696775-865ss` | Running | `10.100.0.193` | `cp01` |
-> | `rke2-coredns-rke2-coredns-85d6696775-jcgrc` | Running | `10.100.1.193` | `cp02` |
-> | `rke2-coredns-rke2-coredns-autoscaler-665b...`| Running | `10.100.0.171` | `cp01` |
+#### A. Cách cấu hình (Corefile)
+CoreDNS được cấu hình thông qua một file gọi là **Corefile**, được lưu dưới dạng `ConfigMap` trong namespace `kube-system`. Corefile sử dụng kiến trúc **Plugins** để xử lý các truy vấn:
 
-> 💡 **Lệnh kiểm chứng:**
-> ```bash
-> # Xem danh sách Pod CoreDNS gắn liền IP và Node
-> kubectl get pods -n kube-system -l k8s-app=kube-dns -o wide
-> ```
-> **Kết quả thực tế:**
+| Plugin | Chức năng |
+|---|---|
+| **`kubernetes`** | Plugin lõi, theo dõi API Server để tạo bản ghi DNS cho Service và Pod. |
+| **`forward`** | Chuyển tiếp các yêu cầu ra DNS ngoài (như 8.8.8.8) nếu không tìm thấy trong cụm. |
+| **`cache`** | Lưu kết quả truy vấn vào bộ nhớ đệm để giảm độ trễ. |
+| **`reload`** | Tự động cập nhật cấu hình ngay khi ConfigMap thay đổi. |
+
+> 💡 **Cấu hình Corefile thực tế lấy từ cụm của công ty:**
 > ```text
-> NAME                                         READY   STATUS    RESTARTS   AGE   IP             NODE   NOMINATED NODE   READINESS GATES
-> rke2-coredns-rke2-coredns-85d6696775-865ss   1/1     Running   0          50d   10.100.0.193   cp01   <none>           <none>
-> rke2-coredns-rke2-coredns-85d6696775-jcgrc   1/1     Running   0          50d   10.100.1.193   cp02   <none>           <none>
+> .:53 {
+>     errors
+>     health { lameduck 10s }
+>     ready
+>     kubernetes cluster.local cluster.local in-addr.arpa ip6.arpa {
+>         pods insecure
+>         fallthrough in-addr.arpa ip6.arpa
+>         ttl 30
+>     }
+>     prometheus 0.0.0.0:9153
+>     forward . /etc/resolv.conf
+>     cache 30
+>     loop
+>     reload
+>     loadbalance
+> }
 > ```
+
+#### B. Cách sử dụng thực tế (Ví dụ từ cụm của công ty)
+Dựa trên các Service đang chạy thực tế trong cụm của công ty, đây là cách công ty gọi chúng từ bên trong một Pod:
+
+1.  **Gọi Service mặc định (Namespace: `default`):** `kubernetes` hoặc `kubernetes.default.svc.cluster.local`
+2.  **Gọi Service hệ thống (Namespace: `kube-system`):** `rke2-coredns-rke2-coredns.kube-system`
+3.  **Gọi Service ứng dụng (Namespace: `sonobuoy`):** `sonobuoy-aggregator.sonobuoy`
+
+**Tính tự động hóa:** Khi công ty tạo bất kỳ Service nào mới, CoreDNS sẽ **ngay lập tức** tạo ra tên miền tương ứng mà không cần công ty sửa bất kỳ file cấu hình nào.
 
 ### 2.2. CIDR Network (Dải mạng Cluster và Service)
 - **Pod CIDR:** Đây là một Dải IP mạng ảo (Virtual IP Pool) cấp định tuyến nội bộ, sau đó cắt nhỏ (Subnet routing) để gán IP cho các Pods (thường dải `10.42.0.0/16` hoặc `10.100.0.0/16`).
@@ -157,11 +163,29 @@ Là tiêu chuẩn xử lý chuyện gán IP động cho container (IPAM) và thi
 
 Sơ đồ kết nối mạng tiêu chuẩn phân tách rõ luồng giao thông **Bắc-Nam (North-South)** và **Đông-Tây (East-West)** trong kiến trúc Cluster của công ty (Kèm CNI Cilium và RKE2 kube-vip).
 
-![Network Topology](NetworkK8sTopo.drawio.png)
+![Network Topology](networkK8sTopo123.drawio.png)
 
-**Chú thích luồng mạng:**
-*   **North-South Traffic (Luồng Bắc-Nam - Dọc):** Người dùng từ ngoài Internet truy cập vào ứng dụng thông qua Load Balancer và Ingress Controller để đẩy traffic xuống Pod. Hoặc Quản trị viên truy cập vào API Server thông qua `kube-vip`. Control Plane (Master Node) KHÔNG xử lý traffic của người dùng cuối.
-*   **East-West Traffic (Luồng Đông-Tây - Ngang):** Giao tiếp nội bộ giữa các Pod với nhau (VD: Frontend gọi Backend). Giao tiếp này chạy ngầm bên dưới thông qua mạng ảo Overlay Network do CNI Cilium thiết lập.
+### 3.1. Giải thích chi tiết các luồng dữ liệu (Flows)
+Dựa trên sơ đồ phân lớp (Layers) mô phỏng cụm thực tế, dưới đây là cách dữ liệu di chuyển qua trọn vẹn các chốt chặn:
 
----
+#### A. Luồng từ ngoài vào (North-South - Nét liền)
+Lộ trình 7 bước của một request từ trình duyệt người dùng đến khi ứng dụng xử lý:
+1.  **Lớp 1 (Khách hàng / Web):** Người dùng gõ tên miền và gửi yêu cầu HTTP/HTTPS.
+2.  **Lớp 2 (Load Balancer / kube-vip):** Traffic chạm vào địa chỉ IP ảo (VIP). `kube-vip` điều hướng gói tin này đến một trong các Node Master đang sống.
+3.  **Lớp 3 (vNIC / Card mạng):** Gói tin chính thức đi vào card mạng vật lý (`eth0`) của Server công ty.
+4.  **Lớp 4 (Ingress Controller):** Nginx Ingress hoặc Cilium Ingress đọc nội dung gói tin ở Layer 7 (URL, Host) để quyết định sẽ gửi request tới Service nào.
+5.  **Lớp 5 (Service - ClusterIP):** Điểm đích logic. Service cung cấp một IP ổn định đại diện cho nhóm Pod.
+6.  **Lớp 6 (Cilium CNI - Interception):** Ngay tại Kernel, Cilium dùng eBPF để "bắt" gói tin, thực hiện NAT để đổi IP Service thành IP thật của Pod.
+7.  **Lớp 7 (Application Pod):** Gói tin hạ cánh an toàn tại container ứng dụng (Frontend) để bắt đầu xử lý.
+
+#### B. Luồng nội bộ (East-West - Nét đứt)
+Giao tiếp ngang giữa các Microservices (VD: Frontend gọi Backend):
+*   **Bước 1:** Frontend Pod gửi yêu cầu đến địa chỉ **Service Backend** (Layer 5).
+*   **Bước 2:** Cilium (Layer 6) lập tức can thiệp ngay tại Card mạng ảo của Pod Frontend, thực hiện Cân bằng tải nội bộ để chọn Pod Backend đích.
+*   **Bước 3:** Nếu Pod Backend ở Node khác, Cilium bọc gói tin qua đường hầm **Overlay Network** để phi thẳng tới đích mà không cần đi vòng ra ngoài mạng vật lý của công ty.
+*   **Bước 4:** Gói tin đến **Backend Pod** (hoặc tiếp tục đến **Database Pod** qua quy trình tương tự).
+
+**Chú thích:**
+*   **North-South Traffic:** Luồng dọc (Dữ liệu người dùng).
+*   **East-West Traffic:** Luồng ngang (Dữ liệu nội bộ cụm).
 
