@@ -163,7 +163,7 @@ Là tiêu chuẩn xử lý chuyện gán IP động cho container (IPAM) và thi
 
 Sơ đồ dưới đây mô phỏng kiến trúc mạng của cụm (Kèm CNI Cilium và RKE2 kube-vip).
 
-![Network Topology](netTopo.drawio.png)
+![Network Topology](topo.drawio.png)
 
 ### 3.1. Giải thích chi tiết các luồng dữ liệu (Flows)
 
