@@ -161,28 +161,20 @@ Là tiêu chuẩn xử lý chuyện gán IP động cho container (IPAM) và thi
 
 ## 3. Network Topology (Sơ đồ mạng tổng quát)
 
-Sơ đồ kết nối mạng tiêu chuẩn phân tách rõ luồng giao thông **Bắc-Nam (North-South)** và **Đông-Tây (East-West)** trong kiến trúc Cluster của công ty (Kèm CNI Cilium và RKE2 kube-vip).
+Sơ đồ dưới đây mô phỏng kiến trúc mạng của cụm (Kèm CNI Cilium và RKE2 kube-vip).
 
-![Network Topology](topo.drawio.png)
+![Network Topology](networkTopo.drawio.png)
 
 ### 3.1. Giải thích chi tiết các luồng dữ liệu (Flows)
-Dựa trên sơ đồ phân lớp (Layers) mô phỏng cụm thực tế, dưới đây là cách dữ liệu di chuyển qua trọn vẹn các chốt chặn:
 
 #### A. Luồng từ ngoài vào (North-South - Nét liền)
-Lộ trình 7 bước của một request từ trình duyệt người dùng đến khi ứng dụng xử lý:
-1.  **Lớp 1 (Khách hàng / Web):** Người dùng gửi yêu cầu HTTP/HTTPS.
-2.  **Lớp 2 (Load Balancer / kube-vip):** Traffic chạm vào địa chỉ IP ảo (VIP).
-3.  **Lớp 3 (vNIC / Card mạng):** Gói tin đi vào card mạng vật lý (`eth0`) của Server.
-4.  **Lớp 4 (Ingress Controller):** Nginx/Cilium Ingress quyết định gửi request tới Service nào.
-5.  **Lớp 5 (Service - ClusterIP):** Điểm đích logic cung cấp IP ổn định.
-6.  **Lớp 6 (Cilium CNI - NAT / Interception):** Ngay tại Kernel, Cilium dùng eBPF để "bắt" gói tin, thực hiện NAT để đổi IP Service thành IP thật của Pod.
-7.  **Lớp 7 (Application Pod):** Gói tin hạ cánh tại container ứng dụng (Frontend).
+1.  **Chốt chặn Ingress:** Chỉ có **Frontend Service** được phơi bày ra ngoài thông qua Ingress. **Backend** và **Database** được để ở dạng **ClusterIP** (chỉ nội bộ), giúp tăng cường bảo mật.
+2.  **Cơ chế Service-to-Endpoints:** Một Service (ví dụ Frontend) sẽ đại diện cho một nhóm các Pod nằm trên các Node khác nhau.
+3.  **Điều phối thông minh (Cilium LB):** Khi traffic chạm vào Service, Cilium sẽ ưu tiên đẩy vào Pod nằm cùng Node (Local Routing) để tối ưu tốc độ. Nếu Pod đó gặp sự cố, nó sẽ tự động đổi sang các Pod ở Node khác thông qua **Overlay Routing**.
 
 #### B. Luồng nội bộ (East-West - Nét đứt)
-Giao tiếp ngang giữa các Microservices (VD: Frontend gọi Backend, hoặc Backend gọi Database):
-*   **Bước 1: Cilium LB (Ra quyết định - Layer 4):** Khi một Pod gọi đến địa chỉ Service (Ví dụ: Service Database), Cilium LB sẽ chặn lại ngay tại Kernel và chọn ra Pod đích cụ thể (Backend hoặc Database Pod) đang hoạt động tốt.
-*   **Bước 2: Overlay Routing (Vận chuyển - Layer 3):** Sau khi chọn xong Pod đích, nếu Pod đó nằm ở một Node khác, Cilium sẽ thực hiện "đóng gói" (Tunneling) và vận chuyển gói tin qua lớp mạng ảo để tới đúng đích.
-*   **Bước 3: Gói tin hạ cánh:** Gói tin đến **Backend Pod** hoặc **Database Pod** một cách an toàn và nhanh chóng.
+*   Giao tiếp ngang giữa các Microservices (VD: Frontend gọi Backend, hoặc Backend gọi Database) được kiểm soát bởi **Cilium Network Policy**.
+*   Dù các Pod nằm chung một Node vật lý, chúng vẫn phải đi qua Cilium để được kiểm tra định danh trước khi dữ liệu được truyền đi.
 
 > [!IMPORTANT]
 > **Lưu ý về Bảo mật (Network Policy):**
@@ -193,4 +185,3 @@ Giao tiếp ngang giữa các Microservices (VD: Frontend gọi Backend, hoặc 
 *   **Overlay Routing:** Là "Con đường" vận chuyển gói tin xuyên qua các Node vật lý (Hạ tầng).
 *   **North-South Traffic:** Luồng dọc (Dữ liệu người dùng từ ngoài vào).
 *   **East-West Traffic:** Luồng ngang (Dữ liệu nội bộ giữa các microservices).
-
