@@ -163,29 +163,34 @@ Là tiêu chuẩn xử lý chuyện gán IP động cho container (IPAM) và thi
 
 Sơ đồ kết nối mạng tiêu chuẩn phân tách rõ luồng giao thông **Bắc-Nam (North-South)** và **Đông-Tây (East-West)** trong kiến trúc Cluster của công ty (Kèm CNI Cilium và RKE2 kube-vip).
 
-![Network Topology](networkK8sTopo123.drawio.png)
+![Network Topology](topo.drawio.png)
 
 ### 3.1. Giải thích chi tiết các luồng dữ liệu (Flows)
 Dựa trên sơ đồ phân lớp (Layers) mô phỏng cụm thực tế, dưới đây là cách dữ liệu di chuyển qua trọn vẹn các chốt chặn:
 
 #### A. Luồng từ ngoài vào (North-South - Nét liền)
 Lộ trình 7 bước của một request từ trình duyệt người dùng đến khi ứng dụng xử lý:
-1.  **Lớp 1 (Khách hàng / Web):** Người dùng gõ tên miền và gửi yêu cầu HTTP/HTTPS.
-2.  **Lớp 2 (Load Balancer / kube-vip):** Traffic chạm vào địa chỉ IP ảo (VIP). `kube-vip` điều hướng gói tin này đến một trong các Node Master đang sống.
-3.  **Lớp 3 (vNIC / Card mạng):** Gói tin chính thức đi vào card mạng vật lý (`eth0`) của Server công ty.
-4.  **Lớp 4 (Ingress Controller):** Nginx Ingress hoặc Cilium Ingress đọc nội dung gói tin ở Layer 7 (URL, Host) để quyết định sẽ gửi request tới Service nào.
-5.  **Lớp 5 (Service - ClusterIP):** Điểm đích logic. Service cung cấp một IP ổn định đại diện cho nhóm Pod.
-6.  **Lớp 6 (Cilium CNI - Interception):** Ngay tại Kernel, Cilium dùng eBPF để "bắt" gói tin, thực hiện NAT để đổi IP Service thành IP thật của Pod.
-7.  **Lớp 7 (Application Pod):** Gói tin hạ cánh an toàn tại container ứng dụng (Frontend) để bắt đầu xử lý.
+1.  **Lớp 1 (Khách hàng / Web):** Người dùng gửi yêu cầu HTTP/HTTPS.
+2.  **Lớp 2 (Load Balancer / kube-vip):** Traffic chạm vào địa chỉ IP ảo (VIP).
+3.  **Lớp 3 (vNIC / Card mạng):** Gói tin đi vào card mạng vật lý (`eth0`) của Server.
+4.  **Lớp 4 (Ingress Controller):** Nginx/Cilium Ingress quyết định gửi request tới Service nào.
+5.  **Lớp 5 (Service - ClusterIP):** Điểm đích logic cung cấp IP ổn định.
+6.  **Lớp 6 (Cilium CNI - NAT / Interception):** Ngay tại Kernel, Cilium dùng eBPF để "bắt" gói tin, thực hiện NAT để đổi IP Service thành IP thật của Pod.
+7.  **Lớp 7 (Application Pod):** Gói tin hạ cánh tại container ứng dụng (Frontend).
 
 #### B. Luồng nội bộ (East-West - Nét đứt)
-Giao tiếp ngang giữa các Microservices (VD: Frontend gọi Backend):
-*   **Bước 1:** Frontend Pod gửi yêu cầu đến địa chỉ **Service Backend** (Layer 5).
-*   **Bước 2:** Cilium (Layer 6) lập tức can thiệp ngay tại Card mạng ảo của Pod Frontend, thực hiện Cân bằng tải nội bộ để chọn Pod Backend đích.
-*   **Bước 3:** Nếu Pod Backend ở Node khác, Cilium bọc gói tin qua đường hầm **Overlay Network** để phi thẳng tới đích mà không cần đi vòng ra ngoài mạng vật lý của công ty.
-*   **Bước 4:** Gói tin đến **Backend Pod** (hoặc tiếp tục đến **Database Pod** qua quy trình tương tự).
+Giao tiếp ngang giữa các Microservices (VD: Frontend gọi Backend, hoặc Backend gọi Database):
+*   **Bước 1: Cilium LB (Ra quyết định - Layer 4):** Khi một Pod gọi đến địa chỉ Service (Ví dụ: Service Database), Cilium LB sẽ chặn lại ngay tại Kernel và chọn ra Pod đích cụ thể (Backend hoặc Database Pod) đang hoạt động tốt.
+*   **Bước 2: Overlay Routing (Vận chuyển - Layer 3):** Sau khi chọn xong Pod đích, nếu Pod đó nằm ở một Node khác, Cilium sẽ thực hiện "đóng gói" (Tunneling) và vận chuyển gói tin qua lớp mạng ảo để tới đúng đích.
+*   **Bước 3: Gói tin hạ cánh:** Gói tin đến **Backend Pod** hoặc **Database Pod** một cách an toàn và nhanh chóng.
 
-**Chú thích:**
-*   **North-South Traffic:** Luồng dọc (Dữ liệu người dùng).
-*   **East-West Traffic:** Luồng ngang (Dữ liệu nội bộ cụm).
+> [!IMPORTANT]
+> **Lưu ý về Bảo mật (Network Policy):**
+> Mặc dù về mặt mạng, mọi Pod đều có thể gọi nhau, nhưng với Cilium, chúng ta áp dụng **Cilium Network Policy** để chặn các luồng ngược (như Database gọi ngược lên Backend). Điều này đảm bảo hacker không thể dùng Database làm bàn đạp để tấn công sâu hơn vào hệ thống.
+
+**Chú thích sơ đồ:**
+*   **Cilium LB:** Là "Bộ não" quyết định chọn Pod đích (Logic).
+*   **Overlay Routing:** Là "Con đường" vận chuyển gói tin xuyên qua các Node vật lý (Hạ tầng).
+*   **North-South Traffic:** Luồng dọc (Dữ liệu người dùng từ ngoài vào).
+*   **East-West Traffic:** Luồng ngang (Dữ liệu nội bộ giữa các microservices).
 
