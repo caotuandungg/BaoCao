@@ -4,6 +4,23 @@ Tài liệu này cung cấp cái nhìn chi tiết về kiến trúc của **RKE2
 
 ---
 
+## Mục lục
+- [1. Tổng quan về RKE2](#1-tổng-quan-về-rke2)
+- [2. Kiến trúc Server Node (Control Plane)](#2-kiến-trúc-server-node-control-plane)
+- [3. Kiến trúc Agent Node (Worker Node)](#3-kiến-trúc-agent-node-worker-node)
+- [4. Các Khái niệm Cốt lõi (Core Concepts)](#4-các-khái-niệm-cốt-lõi-core-concepts)
+  - [4.1. Mạng lưới (Networking / CNI)](#41-mạng-lưới-networking--cni)
+  - [4.2. Ingress Controller](#42-ingress-controller)
+  - [4.3. Deep Dive: CoreDNS trong RKE2](#43-deep-dive-coredns-trong-rke2)
+  - [4.4. Helm Controller](#44-helm-controller)
+- [5. Cơ chế High Availability (HA RKE2)](#5-cơ-chế-high-availability-ha-rke2)
+  - [5.1. Kiến trúc HA cơ bản](#51-kiến-trúc-ha-cơ-bản)
+  - [5.2. Giải pháp 1: Sử dụng Load Balancer (LB)](#52-giải-pháp-1-sử-dụng-load-balancer-lb)
+  - [5.3. Giải pháp 2: Sử dụng Virtual IP (VIP)](#53-giải-pháp-2-sử-dụng-virtual-ip-vip)
+- [6. Thực hành Cài đặt (Step-by-Step)](#6-thực-hành-cài-đặt-step-by-step)
+
+---
+
 ## 1. Tổng quan về RKE2
 RKE2, còn được gọi là *RKE Government*, là một bản phân phối Kubernetes (distribution) do Rancher phát triển với sự tuân thủ nghiêm ngặt các tiêu chuẩn bảo mật.
 
@@ -43,18 +60,22 @@ Trong RKE2, "Server" là thuật ngữ dùng để chỉ các node chạy Contro
 ---
 
 ## 4. Các Khái niệm Cốt lõi (Core Concepts)
-RKE2 đóng gói sẵn các thành phần "Batteries Included" (giống K3s) để bạn có một cụm chạy được ngay mà không cần cấu hình thủ công qua từng file Manifests như Kubeadm.
+RKE2 đóng gói sẵn các thành phần "Batteries Included" (giống K3s) để giúp khởi tạo một cụm chạy được ngay mà không cần cấu hình thủ công qua từng file Manifests như Kubeadm.
 
 ### 4.1. Mạng lưới (Networking / CNI)
-*   Mặc định RKE2 cài đặt **Canal** (sự kết hợp giữa Flannel cho Overlay networking và Calico cho Network Policies).
-*   Trường hợp yêu cầu bảo mật eBPF (như trên Cluster bạn đang dùng), RKE2 hỗ trợ cài đặt thẳng **Cilium** cực kỳ dễ dàng thông qua tham số `cni: cilium` trong file `config.yaml`.
+RKE2 triển khai các plugin mạng dưới dạng Helm Charts. Điểm mạnh của RKE2 là không cần apply các cấu hình CNI thủ công mà chỉ cần khai báo qua file `/etc/rancher/rke2/config.yaml`.
+*   **Canal (Mặc định):** Lựa chọn an toàn và ổn định. Nó là sự kết hợp cực kỳ thông minh: dùng **Flannel** (nhẹ, nhanh) để cấp phát IP và tạo Overlay Network, kết hợp với **Calico** (mạnh mẽ) để thực thi Network Policies (chặn/mở port giữa các Pod).
+*   **Cilium (Khuyên dùng Production):** RKE2 hỗ trợ Native Cilium. Nhờ công nghệ eBPF, Cilium vượt qua giới hạn cổ điển của iptables, cung cấp hiệu năng định tuyến cực cao, khả năng quan sát sâu (qua Hubble) và bảo vệ ở tầng 7. Chỉ cần khai báo `cni: cilium` trước khi khởi động Node đầu tiên.
+*   **Tùy chỉnh linh hoạt:** RKE2 hỗ trợ thêm Multus (cho phép 1 Pod gắn nhiều card mạng vật lý). Rất hữu ích cho các cụm Viễn thông (Telco) hoặc cần tách biệt traffic Storage/Management. Quản trị viên điều chỉnh cấu hình mạng sâu hơn bằng cách tạo tài nguyên `HelmChartConfig`.
 
 ### 4.2. Ingress Controller
 *   RKE2 mặc định triển khai **NGINX Ingress Controller** (thay vì Traefik như K3s) dưới dạng DaemonSet trên mọi node, mở sẵn cổng ảo hóa mạng 80 và 443 ra Host.
 
-### 4.3. CoreDNS & Metrics Server
-*   CoreDNS cung cấp dịch vụ phân giải tên miền nội bộ. Bằng việc thừa kế Helm Controller, CoreDNS trên RKE2 có thể dễ tuỳ chỉnh hơn qua values.yaml.
-*   Metrics Server được cài sẵn để phục vụ lệnh `kubectl top` và hỗ trợ HPA (Horizontal Pod Autoscaling).
+### 4.3. Deep Dive: CoreDNS trong RKE2
+CoreDNS chịu trách nhiệm biến các tên Service (như `my-db.default.svc.cluster.local`) thành IP cụ thể. RKE2 quản lý CoreDNS theo cách hoàn toàn khác biệt so với Kubeadm:
+*   **Đóng gói qua Helm:** Thay vì dùng Manifest tĩnh, CoreDNS được RKE2 quản lý hoàn toàn bằng biểu đồ Helm (Helm Chart). Điều này giúp việc nâng cấp CoreDNS diễn ra an toàn, tự động khi nâng cấp phiên bản RKE2.
+*   **Tùy chỉnh qua HelmChartConfig:** Trong Kubeadm, nếu muốn sửa `Corefile` (Vd: cấu hình DNS chuyển tiếp ra nội bộ công ty), người quản trị phải sửa ConfigMap của CoreDNS (có nguy cơ bị ghi đè sau khi nâng cấp cụm). Với RKE2, chỉ cần tạo một file `HelmChartConfig` đặt trong thư mục `/var/lib/rancher/rke2/server/manifests/`. RKE2 sẽ tự động kết hợp (merge) các cấu hình tùy chỉnh vào cấu hình nội tại, giúp Custom DNS forwarding tồn tại vĩnh viễn.
+*   **Plugin NodeHosts tự động:** RKE2 tự động tiêm một plugin đặc biệt tên là `NodeHosts` vào CoreDNS. Nó tự động cập nhật danh sách IP của tất cả các Node vật lý hiện có. Nhờ đó, Pods trong cụm luôn có thể phân giải tên máy chủ của node một cách siêu tốc ngay bên trong mạng K8s mà không cần ra DNS Public ngoài mạng LAN.
 
 ### 4.4. Helm Controller
 *   Tính năng độc quyền: Kế thừa từ K3s, RKE2 có một bộ điều khiển tự động giám sát thư mục `/var/lib/rancher/rke2/server/manifests/`. Bất kỳ file YAML hoặc packaged Helm Chart nào file đặt vào đây đều được tự động deploy.
@@ -93,7 +114,7 @@ Giải pháp VIP tạo ra một IP ảo và gán nó luân phiên cho một tron
 
 *   **Tính tinh gọn:** VIP gắn thẳng trên giao diện mạng vật lý của Server node. Nếu node Master 1 (đang cầm VIP) bị sập, IP VIP sẽ tự động thuyên chuyển sang node Master 2 trong vài giây, đảm bảo Agent node không bị rớt.
 *   **Gợi ý công cụ:**
-    *   **Kube-vip:** Công cụ hiện đại, chạy nội bộ trong cụm dưới hình thức DaemonSet. Nó sử dụng chuẩn BGP hoặc ARP để thông báo IP thay thế. *(Đây là cách hệ thống của công ty bạn đang tích hợp).*
+    *   **Kube-vip:** Công cụ hiện đại, chạy nội bộ trong cụm dưới hình thức DaemonSet. Nó sử dụng chuẩn BGP hoặc ARP để thông báo IP thay thế. *(Đây là cách hệ thống hiện tại đang tích hợp).*
     *   **Keepalived:** Dịch vụ VRRP truyền thống, yêu cầu cấu hình trên OS Ubuntu của host.
 *   **Khi nào nên dùng:**
     *   Môi trường hạ tầng tự dựng (Bare-metal) hoặc On-Premise.
