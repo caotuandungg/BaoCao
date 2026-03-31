@@ -16,6 +16,37 @@ Quá trình khảo sát hiện trạng cụm Kubernetes ghi nhận hệ thống 
 Để bảo toàn mô hình hiện tại, tối ưu tài nguyên và tránh thiết lập hạ tầng lưu trữ trùng lặp, giải pháp lý tưởng là giữ nguyên cụm xử lý Backend và chỉ thiết lập thêm dịch vụ tác tử (Log Agent) gửi nguồn tới đó: **Fluent Bit**.
 
 **Lộ trình xử lý dòng chảy dữ liệu (Log Pipeline):**
+
+```text
+  [ Các Node Thuộc Cụm Kubernetes ]
+  ┌─────────────────────────────────────────────────────────┐
+  │                                                         │
+  │  1. Ứng dụng Container (Pod)                            │
+  │         │                                               │
+  │         ▼ Xuất log thô qua stdout/stderr                │
+  │  2. /var/log/containers/*.log                           │
+  │         │                                               │
+  │         ▼ Đọc file log liên tục (Tail)                  │
+  │  3. Tiến trình Fluent Bit (DaemonSet)                   │
+  │         │                                               │
+  │         ▼ Bổ sung Metadata & Chuyển tiếp (Cổng 9200)    │
+  └─────────┼───────────────────────────────────────────────┘
+            │ 
+            │ (Truyền tải dữ liệu Giao thức HTTP/Logstash)
+            │
+  [ Namespace: elk - Trung tâm Xử lý backend ]
+  ┌─────────▼───────────────────────────────────────────────┐
+  │                                                         │
+  │  4. Máy chủ Elasticsearch (Lưu trữ và lập chỉ mục)      │
+  │         │                                               │
+  │         ▼ Hệ thống liên kết phân tích truy vấn nội bộ   │
+  │  5. Kibana Dashboard (Giao diện điều khiển đồ hoạ)      │
+  │         │                                               │
+  └─────────┼───────────────────────────────────────────────┘
+            │
+            ▼ Cổng Dịch vụ Mạng: 5601
+   [ Người Quản Trị / Hệ Thống Giám Sát Khoa Học ]
+```
 1. **Tiêu thụ (Ingestion):** Fluent Bit DaemonSet tự động định vị và duyệt đọc dữ liệu thô `/var/log/containers/*.log` do Containerd kết xuất.
 2. **Tiền xử lý (Processing):** Filter Kubernetes chuyên trách đối chiếu đường dẫn nguồn để gắn nhãn ID ngữ cảnh của K8s lên gói log.
 3. **Chuyển tiếp (Forwarding):** Dữ liệu được nén lại và duy trì kết nối truyền tải qua HTTP Bulk Output (cổng `9200`) về máy chủ Elasticsearch phân tán nội mạng Cluster.
