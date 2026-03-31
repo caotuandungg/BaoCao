@@ -61,8 +61,8 @@ Cần xây dựng tệp `fluent-bit-values.yaml` chứa thông tin đích để 
 
 ```yaml
 # Định dạng Node-Level Agent
-kind: DaemonSet
 
+kind: DaemonSet
 config:
   service: |
     [SERVICE]
@@ -73,43 +73,39 @@ config:
         HTTP_Server   On
         HTTP_Listen   0.0.0.0
         HTTP_Port     2020
-
   inputs: |
     [INPUT]
         Name              tail
         Path              /var/log/containers/*.log
+        Read_from_Head    On
         Parser            docker
         Tag               kube.*
         Refresh_Interval  5
         Mem_Buf_Limit     50MB
         Skip_Long_Lines   On
-
   filters: |
     [FILTER]
         Name                kubernetes
         Match               kube.*
-        Kube_URL            https://kubernetes.default.svc:443
-        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
         Kube_Tag_Prefix     kube.var.log.containers.
         Merge_Log           On
         Merge_Log_Key       log_processed
         K8S-Logging.Parser  On
         K8S-Logging.Exclude Off
-
   outputs: |
     [OUTPUT]
         Name            es
         Match           *
-        # Chỉ định Cột mốc tên miền DNS nội bộ của Service Elasticsearch 
         Host            elasticsearch-master.elk.svc.cluster.local
         Port            9200
+        HTTP_User       elastic
+        HTTP_Passwd     1qK@B5mQ
         Logstash_Format On
         Logstash_Prefix fluent-bit
         Retry_Limit     False
-        TLS             Off
-
-# Tính năng xác thực cần thiết dành cho Agent để kiểm tra thông tin Resource Metadata
+        TLS             On
+        TLS.Verify      Off
+        Suppress_Type_Name On
 rbac:
   create: true
   nodeAccess: true
