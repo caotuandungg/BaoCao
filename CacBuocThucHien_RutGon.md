@@ -155,14 +155,7 @@ elasticsearchHosts: "https://elasticsearch-master:9200"
 
 kibanaConfig:
   kibana.yml: |
-    kibana.index: ".kibana_logging"
-    server.name: "Kibana - Centralized Logging"
-
-extraEnvs:
-  - name: ELASTICSEARCH_USERNAME
-    value: "elastic"
-  - name: ELASTICSEARCH_PASSWORD
-    value: "1qK@B5mQ"
+    elasticsearch.ssl.verificationMode: none
 
 service:
   port: 5601
