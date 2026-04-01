@@ -160,3 +160,44 @@ Thực hiện quá trình truy vết, sàng lọc dữ liệu đã thu thập:
 3. Tại trường tham chiếu văn bản ngang màn hình chính, tiến hành rà soát bằng từ khoá trực tiếp hoặc dùng chỉ định KQL (Kibana Query Language). Cú pháp ví dụ nhắm vào cụm ứng dụng Argocd: 
    `kubernetes.labels.app: "argocd"`
 4. Tương tác với sơ đồ phổ theo dõi theo biên độ thời gian và chuỗi hành vi log được định dạng.
+
+## 5. Mở Rộng: Triển Khai Phiên Bản Kibana Độc Lập Cho Logging
+
+Nhằm tối ưu quy trình thao tác giám sát mà không làm xáo trộn không gian làm việc (dashboards, data views) với hệ thống Kibana sản phẩm hiện hành, kiến trúc đã được bổ sung giải pháp cấu hình Multi-instance Kibana, kết nối hiển thị song song từ chung một vùng lưu trữ Elasticsearch chuyên biệt.
+
+### 5.1 Xây Dựng Bản Khai Báo Điều Phối (kibana-logging-values.yaml)
+Cấu hình tận dụng cơ chế TLS nội bộ sẵn có trong namespace `elk` và tái sử dụng Token định danh (giải pháp khắc phục cơ chế cấm superuser của Elastic 8.x):
+
+```yaml
+elasticsearchHosts: "https://elasticsearch-master:9200"
+
+kibanaConfig:
+  kibana.yml: |
+    elasticsearch.ssl.verificationMode: none
+
+service:
+  port: 5601
+
+replicas: 1
+```
+
+### 5.2 Khởi Tác Trình Quản Lý Gói (Helm Install)
+Để đảm bảo quá trình thiết lập mượt mà, kỹ sư yêu cầu làm sạch môi trường để tránh triệt để lỗi Hook chồng lấp sinh ra bởi thiết lập lỗi trước đó, sau đó triển khai mô-đun mới:
+
+```bash
+# Xúc tiến triển khai Kibana phụ trợ (Sử dụng cờ --timeout dự phòng độ trễ khi tải image)
+helm install kibana-dung elastic/kibana \
+  --namespace elk \
+  -f kibana-logging-values.yaml \
+  --timeout 10m
+```
+
+### 5.3 Mở Cầu Kết Nối Vận Hành Cục Bộ (Port-forward & Cookie Session Clash)
+Trong quá trình phát triển trên máy Client, hệ thống trình duyệt web dễ phát sinh lỗi xung đột định danh phiên làm việc (Session Cookie Clash) khi chia sẻ định danh Cookie Kibana của cổng `5601` vào kênh chuyển tiếp `5602` của `localhost`. Quy trình xử lý lỗi tiêu chuẩn:
+
+1. Mở cầu mạng chuyển tiếp qua cổng dịch vụ biệt lập:
+   `kubectl port-forward svc/kibana-dung-kibana 5602:5601 -n elk`
+2. Yêu cầu **bắt buộc** khởi tạo **Phiên duyệt web Ẩn danh (Incognito Window / Private Browsing)** để cô lập hoàn toàn Cookie cũ.
+3. Chuyển đến liên kết vận hành: `http://localhost:5602`
+4. Xác thực phân quyền truy cập thông qua tài khoản quản trị cụm ES (`elastic`).
+5. Tiến hành lặp lại Quy trình định dạng Data View `fluent-bit-*` (Thuộc mục 4.1) tại không gian Kibana mới này để hoàn thiện 100% dòng lưu chuyển Log.
