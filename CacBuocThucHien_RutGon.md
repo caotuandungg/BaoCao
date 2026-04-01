@@ -29,8 +29,8 @@ config:
         Parser            docker    # Cú pháp Format mặc định
         Tag               kube.*    # Đánh dán nhãn toàn bộ lượng dữ liệu này là 'kube.*' để dễ lọc ở Filter
         Refresh_Interval  5         # Định kỳ 5 giây rà soát ổ cứng xem có file log của Ứng dụng mới nào vừa ra log không
-        Mem_Buf_Limit     50MB      # Giới hạn RAM tối đa mỗi Node là 50MB để đệm log tạm thời (Tránh nghẽn khiến ES chết lây)
-        Skip_Long_Lines   On        # An toàn hệ thống, tự động chối từ thu thập những dòng log dài thê thảm bất thường
+        Mem_Buf_Limit     50MB      # Giới hạn RAM tối đa của agent fluent bit trên mỗi Node
+        Skip_Long_Lines   On        # Tự động chối từ thu thập những dòng log quá dài
   filters: |
     [FILTER]
         Name                kubernetes
