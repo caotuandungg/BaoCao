@@ -33,13 +33,13 @@ config:
         Skip_Long_Lines   On        # An toàn hệ thống, tự động chối từ thu thập những dòng log dài thê thảm bất thường
   filters: |
     [FILTER]
-        Name                kubernetes # Kích hoạt bộ lọc chuyên dụng cho mạng K8s
-        Match               kube.*     # Áp dụng cho những dữ liệu đã được gán mác Tag kube.* ở trên
-        Kube_Tag_Prefix     kube.var.log.containers. # Cấu trúc bóc tách dữ liệu gốc theo path log
-        Merge_Log           On         # Cố gắng hợp nhất các chuỗi JSON lồng nhau vào một chuỗi phẳng
-        Merge_Log_Key       log_processed # Khóa cha gánh chuỗi JSON đó
-        K8S-Logging.Parser  On         # Hỗ trợ phân tích cú pháp nâng cao từ Label của Pod
-        K8S-Logging.Exclude Off        # Nhặt toàn bộ log các Pod trên mạng. (Chỉnh thành On nếu muốn một số Pod không bị Fluent Bit thu log)
+        Name                kubernetes
+        Match               kube.*
+        Merge_Log           On             # Cố gắng hợp nhất các chuỗi JSON lồng nhau
+        Keep_Log            Off            # Xóa log thô sau khi đã hợp nhất thành công (Tiết kiệm ổ cứng)
+        K8S-Logging.Parser  On             # Hỗ trợ phân tích cú pháp từ Label của Pod
+        K8S-Logging.Exclude On             # Cho phép loại trừ log nếu Pod có dán nhãn exclude
+        Buffer_Size         0              # Vô hiệu hóa giới hạn bộ nhớ đệm (Tránh lỗi cannot increase buffer)
   outputs: |
     [OUTPUT]
         Name            es          # Kích hoạt module gửi đầu ra tới Elasticsearch Backend
