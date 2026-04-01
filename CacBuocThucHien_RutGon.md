@@ -9,6 +9,8 @@ Tạo tệp văn bản mang tên `fluent-bit-values.yaml` tại thư mục làm 
 
 ```yaml
 kind: DaemonSet # Đảm bảo mỗi máy chủ (Node) trong cụm đều chạy chính xác 1 Pod thu gom log
+hostNetwork: true # Cho phép Agent dùng mạng vật lý của Node, tránh bị chặn bởi mạng ảo CNI (Cilium)
+dnsPolicy: ClusterFirstWithHostNet # Đảm bảo phân giải tên miền chuẩn khi dùng HostNetwork
 config:
   service: |
     [SERVICE]
