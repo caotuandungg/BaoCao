@@ -48,9 +48,12 @@ config:
         Port            9200        # Cổng gọi REST API nhập liệu gốc của Elasticsearch 
         HTTP_User       elastic     # Tài khoản quyền cao nhất của ES
         HTTP_Passwd     1qK@B5mQ    # Password khớp với Elasticsearch Cluster
+        Buffer_Size     False       # Tắt giới hạn RAM bắt nhận phản hồi (Tránh bị kẹt lỗi cannot increase buffer 512KB)
         Logstash_Format On          # Sinh ra tệp dữ liệu lưu trữ dưới chuẩn theo khung ngày (VD: fluent-bit-YYYY.MM.DD)
         Logstash_Prefix fluent-bit  # Đặt tiền tố index name (Tức là trên Kibana sẽ truy hồi theo chữ fluent-bit-*)
-        Retry_Limit     False       # Nếu ES sập hoặc mạng đứt, sẽ Retry lưu giữ đệm log chờ đẩy Vĩnh Viễn Không Bỏ Cuộc (False)
+        Retry_Limit     5           # Chỉ thử lại 5 lần nếu lỗi thay vì thử vĩnh viễn (Tránh kẹt cục bộ vĩnh viễn)
+        Trace_Error     On          # [QUAN TRỌNG] Bật chế độ in chi tiết lỗi nếu Elasticsearch từ chối nhận log
+        Replace_Dots    On          # Khắc phục dứt điểm lỗi Mapper Parsing Exception khi Label K8s chứa dấu chấm
         TLS             On          # Mã hóa toàn trình giao thức đường dây HTTPS để đảm bảo bảo mật nội bộ
         TLS.Verify      Off         # Skip bước chứng thực Certificate SSL (Vì chúng ta dùng Trust nội mạng Self-Signed)
         Suppress_Type_Name On       # Cắt bỏ mapping tham chiếu "_type", vì Elasticsearch version 8.x CẤM sử dụng "_type"

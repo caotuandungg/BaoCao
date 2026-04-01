@@ -63,6 +63,8 @@ Cần xây dựng tệp `fluent-bit-values.yaml` chứa thông tin đích để 
 # Định dạng Node-Level Agent
 
 kind: DaemonSet
+hostNetwork: true # Cho phép Agent dùng mạng vật lý của Node, tránh bị chặn bởi mạng ảo CNI (Cilium)
+dnsPolicy: ClusterFirstWithHostNet # Đảm bảo phân giải tên miền chuẩn khi dùng HostNetwork
 config:
   service: |
     [SERVICE]
@@ -100,9 +102,12 @@ config:
         Port            9200
         HTTP_User       elastic
         HTTP_Passwd     1qK@B5mQ
+        Buffer_Size     False
         Logstash_Format On
         Logstash_Prefix fluent-bit
-        Retry_Limit     False
+        Retry_Limit     5
+        Trace_Error     On
+        Replace_Dots    On
         TLS             On
         TLS.Verify      Off
         Suppress_Type_Name On
