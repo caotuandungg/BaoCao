@@ -10,6 +10,8 @@ Cơ chế cốt lõi bao gồm:
 - Agent tự động bổ sung siêu dữ liệu (metadata) hữu ích như Tên Pod, Tên Namespace, Nhãn (Labels) gắn kết với từng dòng log.
 - Bản ghi cuối cùng được luân chuyển về một hệ thống lưu trữ độc lập (Log Backend) chuyên phục vụ cho mục đích lập chỉ mục, tìm kiếm và phân tích.
 
+![Mô hình Topology Hệ Thống Log Search](LogSearch.png)
+
 ## 2. Giải Pháp Quy Hoạch & Thiết Kế
 Quá trình khảo sát hiện trạng cụm Kubernetes ghi nhận hệ thống đang vận hành kiến trúc lưu trữ **Elasticsearch** và giao diện tìm kiếm đồ hoạ **Kibana** (thuộc bộ đôi giải pháp ELK) nằm sẵn tại không gian định danh (namespace) `elk`. 
 

@@ -36,10 +36,8 @@ config:
         Name                kubernetes
         Match               kube.*
         Merge_Log           On             # Cố gắng hợp nhất các chuỗi JSON lồng nhau
-        Keep_Log            Off            # Xóa log thô sau khi đã hợp nhất thành công (Tiết kiệm ổ cứng)
         K8S-Logging.Parser  On             # Hỗ trợ phân tích cú pháp từ Label của Pod
-        K8S-Logging.Exclude On             # Cho phép loại trừ log nếu Pod có dán nhãn exclude
-        Buffer_Size         0              # Vô hiệu hóa giới hạn bộ nhớ đệm (Tránh lỗi cannot increase buffer)
+        K8S-Logging.Exclude Off            # Thu thập log của tất cả các Pod , ko quan tâm có nhãn hay không
   outputs: |
     [OUTPUT]
         Name            es          # Kích hoạt module gửi đầu ra tới Elasticsearch Backend
