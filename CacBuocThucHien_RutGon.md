@@ -211,7 +211,53 @@ Toàn bộ log từ Fluent Bit sẽ xuất hiện ngay lập tức vì log vẫn
 
 ---
 
-## VI. Các Lỗi Đã Gặp Khi Cài Kibana Mới Vào Namespace `elk`
+## VII. Cấu Hình Parser Nâng Cao (Xử lý Format Log)
+
+Để biến log văn bản thô thành dạng có cấu trúc, bạn cần khai báo các `[PARSER]` trong Fluent Bit. Dưới đây là 2 ví dụ cấu hình thường dùng nhất:
+
+### 1. Parser cho Nginx (Web Server)
+Giúp tách rời các trường: IP, Method, Path, Status, Latency...
+
+**Cấu hình bổ sung vào `fluent-bit-values.yaml`:**
+```yaml
+config:
+  customParsers: |
+    [PARSER]
+        Name   nginx_custom
+        Format regex
+        Regex  ^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?$
+        Time_Key time
+        Time_Format %d/%b/%Y:%H:%M:%S %z
+```
+
+### 2. Parser cho Java (Xử lý Log nhiều dòng - Multiline)
+Khi ứng dụng Java bị lỗi, log sẽ in ra hàng chục dòng Stacktrace. Nếu không có Parser này, Kibana sẽ coi mỗi dòng đó là một bản dịch rời rạc, làm cho việc tìm kiếm cực kỳ khó khăn.
+
+**Cấu hình xử lý đa dòng:**
+```yaml
+config:
+  service: |
+    [SERVICE]
+        Parsers_File custom_parsers.conf
+
+  inputs: |
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*.log
+        Multiline         On
+        Parser_Firstline  java_multiline
+
+  customParsers: |
+    [PARSER]
+        Name        java_multiline
+        Format      regex
+        Regex       /^\[(?<time>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] (?<level>[A-Z]+) (?<message>.*)/
+```
+
+---
+
+## VIII. Các Lỗi Đã Gặp Khi Cài Kibana Mới Vào Namespace `elk`
+
 
 > Ghi chép lại các lỗi xương máu để tránh lặp lại trong các lần cài đặt sau.
 
