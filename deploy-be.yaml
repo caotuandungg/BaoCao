@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dung-be-log-generator
+  namespace: dung-lab
+  labels:
+    owner: dung
+    project: dung-lab
+    purpose: log-testing
+    component: be
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dung-be-log-generator
+  template:
+    metadata:
+      labels:
+        app: dung-be-log-generator
+        owner: dung
+        project: dung-lab
+        purpose: log-testing
+        component: be
+    spec:
+      containers:
+      - name: be
+        image: python:3.11-alpine
+        command: ["python", "/scripts/be.py"]
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+      volumes:
+      - name: scripts
+        configMap:
+          name: dung-log-generator-scripts

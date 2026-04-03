@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elastalert-config
+  namespace: elk
+data:
+  config.yaml: |
+    es_host: elasticsearch-master.elk.svc.cluster.local
+    es_port: 9200
+    use_ssl: true
+    verify_certs: false
+    es_username: elastic
+    es_password: "1qK@B5mQ"
+    rules_folder: /opt/elastalert/rules
+    run_every:
+      minutes: 1
+    buffer_time:
+      minutes: 10
+    writeback_index: elastalert_status
+    alert_time_limit:
+      days: 1

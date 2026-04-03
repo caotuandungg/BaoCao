@@ -1,0 +1,657 @@
+# How To Check
+
+## 1. Mục tiêu
+
+File này hướng dẫn cách tự kiểm tra toàn bộ hệ thống logging đã triển khai, để xác nhận có thỏa mãn các yêu cầu:
+
+1. Có hệ thống K8s sinh log gồm `fe`, `be`, `db`, `web`
+2. Có quản lý vòng đời lưu trữ bằng ILM
+3. Có index design riêng
+4. Có mapping tĩnh, không dùng dynamic
+5. Có buffer của Fluent Bit
+6. Có alert theo số lượng error trong một khoảng thời gian
+
+Các bước dưới đây chia làm 2 nhóm:
+
+- test bằng terminal
+- test bằng giao diện Kibana
+
+---
+
+## 2. Kiểm tra workload sinh log trong namespace `dung-lab`
+
+### 2.1. Kiểm tra namespace
+
+```powershell
+kubectl get ns dung-lab
+```
+
+Kết quả mong đợi:
+
+- có namespace `dung-lab`
+- trạng thái `Active`
+
+### 2.2. Kiểm tra 4 deployment
+
+```powershell
+kubectl get deploy -n dung-lab
+```
+
+Kết quả mong đợi:
+
+- có 4 deployment:
+  - `dung-fe-log-generator`
+  - `dung-be-log-generator`
+  - `dung-db-log-generator`
+  - `dung-web-log-generator`
+- cột `READY` là `1/1`
+
+### 2.3. Kiểm tra 4 pod
+
+```powershell
+kubectl get pods -n dung-lab -o wide
+```
+
+Kết quả mong đợi:
+
+- có 4 pod
+- tất cả `Running`
+- không có pod `CrashLoopBackOff`
+
+### 2.4. Kiểm tra log thực tế từng pod
+
+```powershell
+kubectl logs -n dung-lab deployment/dung-fe-log-generator --tail=10
+kubectl logs -n dung-lab deployment/dung-be-log-generator --tail=10
+kubectl logs -n dung-lab deployment/dung-db-log-generator --tail=10
+kubectl logs -n dung-lab deployment/dung-web-log-generator --tail=10
+```
+
+Kết quả mong đợi:
+
+- mỗi pod đều in log JSON
+- có các field như:
+  - `@timestamp`
+  - `service`
+  - `level`
+  - `event`
+  - `message`
+
+Ví dụ:
+
+```json
+{
+  "@timestamp": "2026-04-03T03:39:16.427001+00:00",
+  "service": "frontend",
+  "level": "INFO",
+  "event": "page_view",
+  "message": "frontend generated log"
+}
+```
+
+Nếu bước này đúng, tức là yêu cầu số 1 đã đạt ở mức nguồn sinh log.
+
+---
+
+## 3. Kiểm tra Fluent Bit đã đọc log từ `dung-lab`
+
+### 3.1. Kiểm tra pod Fluent Bit
+
+```powershell
+kubectl get pods -n elk -l app.kubernetes.io/name=fluent-bit
+```
+
+Kết quả mong đợi:
+
+- có 3 pod Fluent Bit
+- tất cả `Running`
+
+### 3.2. Kiểm tra rollout của DaemonSet
+
+```powershell
+kubectl rollout status daemonset/fluent-bit -n elk
+```
+
+Kết quả mong đợi:
+
+- thông báo rollout thành công
+
+### 3.3. Kiểm tra log Fluent Bit
+
+```powershell
+kubectl logs -n elk -l app.kubernetes.io/name=fluent-bit --tail=100
+```
+
+Kết quả mong đợi:
+
+- không có lỗi config parser
+- không có lỗi crash
+- có log kiểu:
+  - `storage_strategy='filesystem'`
+  - `worker #0 started`
+  - `worker #1 started`
+
+Nếu thấy dòng kiểu:
+
+```text
+storage_strategy='filesystem'
+```
+
+thì điều đó xác nhận buffer filesystem đã bật.
+
+### 3.4. Kiểm tra ConfigMap Fluent Bit đang dùng
+
+```powershell
+kubectl get configmap fluent-bit -n elk -o yaml
+```
+
+Tìm các điểm sau trong `fluent-bit.conf`:
+
+- parser `json_log`
+- `storage.path /var/fluent-bit/state`
+- `storage.type filesystem`
+- output tới:
+  - `dung-fe-write`
+  - `dung-be-write`
+  - `dung-db-write`
+  - `dung-web-write`
+
+Nếu có đủ các mục trên, tức là yêu cầu số 3, 4, 5 đã được cấu hình đúng ở phía Fluent Bit.
+
+---
+
+## 4. Kiểm tra index design trong Elasticsearch
+
+### 4.1. Kiểm tra index riêng
+
+```powershell
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/indices/dung-*?v"
+```
+
+Kết quả mong đợi:
+
+- có 4 index:
+  - `dung-fe-000001`
+  - `dung-be-000001`
+  - `dung-db-000001`
+  - `dung-web-000001`
+
+Đây là bằng chứng yêu cầu số 3 đã đạt.
+
+### 4.2. Kiểm tra alias ghi
+
+```powershell
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/aliases/dung-*?v"
+```
+
+Kết quả mong đợi:
+
+- có alias:
+  - `dung-fe-write`
+  - `dung-be-write`
+  - `dung-db-write`
+  - `dung-web-write`
+- `is_write_index` là `true`
+
+### 4.3. Kiểm tra log đã đi vào index riêng chưa
+
+```powershell
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-fe-*/_search?q=*&size=2&sort=@timestamp:desc"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-be-*/_search?q=*&size=2&sort=@timestamp:desc"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-db-*/_search?q=*&size=2&sort=@timestamp:desc"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-web-*/_search?q=*&size=2&sort=@timestamp:desc"
+```
+
+Kết quả mong đợi:
+
+- mỗi index đều có document
+- field JSON đã được parse ra riêng, không còn chỉ nằm trong chuỗi log thô
+
+Ví dụ ở `dung-be-*` bạn phải thấy field như:
+
+- `service`
+- `level`
+- `endpoint`
+- `status_code`
+- `error_code`
+
+Nếu thấy các field đó ở `_source`, thì parser và routing đang chạy đúng.
+
+---
+
+## 5. Kiểm tra mapping tĩnh
+
+### 5.1. Kiểm tra template
+
+```powershell
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_index_template/dung-fe-template"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_index_template/dung-be-template"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_index_template/dung-db-template"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_index_template/dung-web-template"
+```
+
+Kết quả mong đợi:
+
+- mỗi template tồn tại
+- có `"dynamic": false`
+
+### 5.2. Kiểm tra mapping của index thật
+
+```powershell
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-be-000001/_mapping"
+```
+
+Kết quả mong đợi:
+
+- thấy kiểu field cụ thể, ví dụ:
+  - `status_code` là `integer`
+  - `service` là `keyword`
+  - `message` là `text`
+
+Nếu có điều này, thì yêu cầu số 4 đã đạt.
+
+---
+
+## 6. Kiểm tra ILM
+
+### 6.1. Kiểm tra policy
+
+```powershell
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_ilm/policy/logs-lab-policy"
+```
+
+Kết quả mong đợi:
+
+- policy tồn tại
+- có phase `hot`
+- có phase `delete`
+
+### 6.2. Kiểm tra index đã gắn ILM chưa
+
+```powershell
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-fe-000001/_ilm/explain"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-be-000001/_ilm/explain"
+```
+
+Kết quả mong đợi:
+
+- `"managed": true`
+- `"policy": "logs-lab-policy"`
+- `"phase": "hot"`
+
+Nếu có đủ, yêu cầu số 2 đã đạt.
+
+---
+
+## 7. Kiểm tra buffer Fluent Bit
+
+### 7.1. Kiểm tra cấu hình buffer
+
+```powershell
+kubectl get configmap fluent-bit -n elk -o yaml
+```
+
+Tìm trong cấu hình:
+
+- `storage.path /var/fluent-bit/state`
+- `storage.type filesystem`
+- `DB /var/fluent-bit/state/tail-db`
+- `Mem_Buf_Limit`
+- `storage.total_limit_size`
+
+### 7.2. Kiểm tra volume mount
+
+```powershell
+kubectl get ds fluent-bit -n elk -o yaml
+```
+
+Tìm trong DaemonSet:
+
+- mount `/var/fluent-bit/state`
+- `hostPath` cho `fluent-bit-state`
+
+### 7.3. Kiểm tra pod đang dùng filesystem buffer
+
+```powershell
+kubectl logs -n elk -l app.kubernetes.io/name=fluent-bit --tail=100
+```
+
+Kết quả mong đợi:
+
+- có dòng:
+
+```text
+storage_strategy='filesystem'
+```
+
+### 7.4. Kiểm tra file state trong pod Fluent Bit
+
+Lấy tên một pod:
+
+```powershell
+kubectl get pods -n elk -l app.kubernetes.io/name=fluent-bit
+```
+
+Sau đó:
+
+```powershell
+kubectl exec -n elk <ten-pod-fluent-bit> -- ls -la /var/fluent-bit/state
+```
+
+Kết quả mong đợi:
+
+- có file như:
+  - `tail-db`
+  - file chunk/state khác
+
+Nếu có, yêu cầu số 5 đã đạt.
+
+### 7.5. Test mạnh hơn cho buffer
+
+Chỉ làm nếu bạn được phép test trên cụm.
+
+Ý tưởng:
+
+1. để 4 pod `dung-lab` tiếp tục sinh log
+2. quan sát log Fluent Bit khi Elasticsearch bị quá tải hoặc tạm lỗi
+3. kiểm tra Fluent Bit không crash mà retry
+
+Hiện tại trên cụm đã quan sát được thực tế:
+
+- Fluent Bit có retry khi Elasticsearch trả `429`
+- agent vẫn chạy
+- buffer filesystem vẫn bật
+
+Đây đã là bằng chứng khá tốt cho cơ chế buffer/retry.
+
+---
+
+## 8. Kiểm tra alert bằng ElastAlert
+
+### 8.1. Kiểm tra deployment ElastAlert
+
+```powershell
+kubectl get deploy -n elk elastalert2
+kubectl get pods -n elk -l app=elastalert2
+```
+
+Kết quả mong đợi:
+
+- deployment tồn tại
+- pod `Running`
+
+### 8.2. Kiểm tra log khởi động
+
+```powershell
+kubectl logs -n elk deployment/elastalert2 --tail=100
+```
+
+Kết quả mong đợi:
+
+- có dòng:
+  - `3 rules loaded`
+  - `Starting up`
+
+### 8.3. Kiểm tra alert đã bắn thật chưa
+
+```powershell
+kubectl logs -n elk deployment/elastalert2 --tail=200
+```
+
+Kết quả mong đợi:
+
+- có log cảnh báo cho:
+  - `Backend Error Count Alert`
+  - `Database Auth Failed Alert`
+  - `Nginx 5xx Error Alert`
+
+Ví dụ bạn sẽ thấy kiểu:
+
+```text
+Alert for Backend Error Count Alert
+Alert for Database Auth Failed Alert
+Alert for Nginx 5xx Error Alert
+```
+
+Nếu thấy các dòng này thì yêu cầu số 6 đã đạt.
+
+---
+
+## 9. Kiểm tra trên giao diện Kibana
+
+### 9.1. Mở Kibana
+
+Nếu bạn dùng Kibana riêng cho logging:
+
+```powershell
+kubectl port-forward svc/kibana-dung-kibana 5602:5601 -n elk
+```
+
+Sau đó mở:
+
+```text
+http://localhost:5602
+```
+
+Khuyến nghị:
+
+- mở tab ẩn danh để tránh clash cookie
+
+### 9.2. Tạo Data View cho các index mới
+
+Vào:
+
+- `Stack Management`
+- `Data Views`
+
+Tạo lần lượt:
+
+- `dung-fe-*`
+- `dung-be-*`
+- `dung-db-*`
+- `dung-web-*`
+
+Chọn timestamp field:
+
+- `@timestamp`
+
+### 9.3. Kiểm tra log frontend
+
+Vào:
+
+- `Analytics`
+- `Discover`
+
+Chọn Data View:
+
+- `dung-fe-*`
+
+Kết quả mong đợi:
+
+- thấy log frontend
+- có các cột như:
+  - `service`
+  - `level`
+  - `path`  
+  - `user_id`
+  - `response_time_ms`
+
+### 9.4. Kiểm tra log backend
+
+Chọn Data View:
+
+- `dung-be-*`
+
+Kết quả mong đợi:
+
+- thấy log backend
+- có field:
+  - `endpoint`
+  - `status_code`
+  - `error_code`
+
+### 9.5. Kiểm tra log database
+
+Chọn Data View:
+
+- `dung-db-*`
+
+Kết quả mong đợi:
+
+- thấy log database
+- có field:
+  - `db_name`
+  - `query_type`
+  - `duration_ms`
+  - `db_user`
+
+### 9.6. Kiểm tra log webserver
+
+Chọn Data View:
+
+- `dung-web-*`
+
+Kết quả mong đợi:
+
+- thấy log webserver
+- có field:
+  - `method`
+  - `status_code`
+  - `client_ip`
+
+### 9.7. Kiểm tra filter theo namespace
+
+Trong Discover, thử query:
+
+```text
+kubernetes.namespace_name: "dung-lab"
+```
+
+Kết quả mong đợi:
+
+- chỉ hiện log của lab bạn
+
+### 9.8. Kiểm tra log lỗi
+
+Ví dụ trong `dung-be-*`, query:
+
+```text
+level: "ERROR"
+```
+
+Trong `dung-web-*`, query:
+
+```text
+status_code >= 500
+```
+
+Trong `dung-db-*`, query:
+
+```text
+event: "auth_failed"
+```
+
+Nếu ra kết quả đúng, thì parser và mapping đang hoạt động tốt.
+
+---
+
+## 10. Checklist xác nhận theo yêu cầu
+
+### Yêu cầu 1: Có hệ thống K8s sinh log FE/BE/DB/WEB
+
+Check:
+
+- `kubectl get pods -n dung-lab`
+- `kubectl logs` từng deployment
+
+Đạt khi:
+
+- có đủ 4 pod
+- log sinh đều
+
+### Yêu cầu 2: Có lifecycle cho Elasticsearch
+
+Check:
+
+- `_ilm/policy/logs-lab-policy`
+- `_ilm/explain`
+
+Đạt khi:
+
+- có policy
+- index được quản lý bởi ILM
+
+### Yêu cầu 3: Có index design
+
+Check:
+
+- `_cat/indices/dung-*`
+- `_cat/aliases/dung-*`
+
+Đạt khi:
+
+- có index riêng cho FE/BE/DB/WEB
+
+### Yêu cầu 4: Có mapping, không dùng dynamic
+
+Check:
+
+- `_index_template/dung-*-template`
+- `_mapping`
+
+Đạt khi:
+
+- `"dynamic": false`
+- field có kiểu rõ ràng
+
+### Yêu cầu 5: Có buffer của Fluent Bit
+
+Check:
+
+- ConfigMap Fluent Bit
+- DaemonSet volume mount
+- log Fluent Bit có `storage_strategy='filesystem'`
+
+Đạt khi:
+
+- filesystem buffer đang bật
+
+### Yêu cầu 6: Có alert theo error count
+
+Check:
+
+- `kubectl logs -n elk deployment/elastalert2`
+
+Đạt khi:
+
+- thấy alert thật trong log ElastAlert
+
+---
+
+## 11. Bộ lệnh ngắn gọn để kiểm tra nhanh
+
+```powershell
+kubectl get pods -n dung-lab
+kubectl logs -n dung-lab deployment/dung-fe-log-generator --tail=5
+kubectl logs -n dung-lab deployment/dung-be-log-generator --tail=5
+kubectl get pods -n elk -l app.kubernetes.io/name=fluent-bit
+kubectl logs -n elk deployment/elastalert2 --tail=50
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/indices/dung-*?v"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/aliases/dung-*?v"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-be-000001/_ilm/explain"
+```
+
+---
+
+## 12. Kết luận
+
+Nếu bạn làm hết các bước kiểm tra trong file này và thấy kết quả đúng như mong đợi, thì có thể kết luận rằng hệ thống logging hiện tại đã đáp ứng được các yêu cầu bạn đặt ra ở mức triển khai thực tế trên cụm.
+
+Điểm quan trọng nhất để xác nhận nhanh là:
+
+- `dung-lab` có 4 pod sinh log
+- log đi vào `dung-*` thay vì chỉ ở `fluent-bit-*`
+- ILM có hiệu lực
+- mapping là tĩnh
+- Fluent Bit có filesystem buffer
+- ElastAlert đã bắn cảnh báo thật

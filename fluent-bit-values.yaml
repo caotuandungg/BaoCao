@@ -1,0 +1,185 @@
+kind: DaemonSet
+hostNetwork: true
+dnsPolicy: ClusterFirstWithHostNet
+
+config:
+  service: |
+    [SERVICE]
+        Flush                  5
+        Grace                  30
+        Log_Level              info
+        Daemon                 off
+        Parsers_File           parsers.conf
+        Parsers_File           custom_parsers.conf
+        HTTP_Server            On
+        HTTP_Listen            0.0.0.0
+        HTTP_Port              2020
+        storage.path           /var/fluent-bit/state
+        storage.sync           normal
+        storage.checksum       off
+        storage.max_chunks_up  128
+
+  inputs: |
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*.log
+        Read_from_Head    On
+        Parser            cri
+        Tag               kube.*
+        Refresh_Interval  5
+        Mem_Buf_Limit     10MB
+        Skip_Long_Lines   On
+        DB                /var/fluent-bit/state/tail-db
+        DB.locking        true
+        storage.type      filesystem
+
+  filters: |
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Merge_Log           Off
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude Off
+
+    [FILTER]
+        Name         parser
+        Match        kube.*
+        Key_Name     message
+        Parser       json_log
+        Reserve_Data On
+        Preserve_Key Off
+
+    [FILTER]
+        Name          rewrite_tag
+        Match         kube.*
+        Rule          $service ^frontend$  logs.fe   false
+        Rule          $service ^backend$   logs.be   false
+        Rule          $service ^database$  logs.db   false
+        Rule          $service ^webserver$ logs.web  false
+        Emitter_Name  re_emitted_logs
+
+  outputs: |
+    [OUTPUT]
+        Name                    es
+        Match                   logs.fe
+        Host                    elasticsearch-master.elk.svc.cluster.local
+        Port                    9200
+        HTTP_User               elastic
+        HTTP_Passwd             1qK@B5mQ
+        Index                   dung-fe-write
+        Suppress_Type_Name      On
+        Retry_Limit             5
+        Buffer_Size             False
+        storage.total_limit_size 500MB
+        net.keepalive           On
+        net.keepalive_idle_timeout 10
+        TLS                     On
+        TLS.Verify              Off
+
+    [OUTPUT]
+        Name                    es
+        Match                   logs.be
+        Host                    elasticsearch-master.elk.svc.cluster.local
+        Port                    9200
+        HTTP_User               elastic
+        HTTP_Passwd             1qK@B5mQ
+        Index                   dung-be-write
+        Suppress_Type_Name      On
+        Retry_Limit             5
+        Buffer_Size             False
+        storage.total_limit_size 500MB
+        net.keepalive           On
+        net.keepalive_idle_timeout 10
+        TLS                     On
+        TLS.Verify              Off
+
+    [OUTPUT]
+        Name                    es
+        Match                   logs.db
+        Host                    elasticsearch-master.elk.svc.cluster.local
+        Port                    9200
+        HTTP_User               elastic
+        HTTP_Passwd             1qK@B5mQ
+        Index                   dung-db-write
+        Suppress_Type_Name      On
+        Retry_Limit             5
+        Buffer_Size             False
+        storage.total_limit_size 500MB
+        net.keepalive           On
+        net.keepalive_idle_timeout 10
+        TLS                     On
+        TLS.Verify              Off
+
+    [OUTPUT]
+        Name                    es
+        Match                   logs.web
+        Host                    elasticsearch-master.elk.svc.cluster.local
+        Port                    9200
+        HTTP_User               elastic
+        HTTP_Passwd             1qK@B5mQ
+        Index                   dung-web-write
+        Suppress_Type_Name      On
+        Retry_Limit             5
+        Buffer_Size             False
+        storage.total_limit_size 500MB
+        net.keepalive           On
+        net.keepalive_idle_timeout 10
+        TLS                     On
+        TLS.Verify              Off
+
+    [OUTPUT]
+        Name               es
+        Match              kube.*
+        Host               elasticsearch-master.elk.svc.cluster.local
+        Port               9200
+        HTTP_User          elastic
+        HTTP_Passwd        1qK@B5mQ
+        Buffer_Size        False
+        Logstash_Format    On
+        Logstash_Prefix    fluent-bit
+        Retry_Limit        5
+        Trace_Error        On
+        Replace_Dots       On
+        TLS                On
+        TLS.Verify         Off
+        Suppress_Type_Name On
+
+  customParsers: |
+    [PARSER]
+        Name        json_log
+        Format      json
+        Time_Key    @timestamp
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+        Time_Keep   On
+
+rbac:
+  create: true
+  nodeAccess: true
+
+daemonSetVolumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+  - name: varlibdockercontainers
+    hostPath:
+      path: /var/lib/docker/containers
+  - name: etcmachineid
+    hostPath:
+      path: /etc/machine-id
+      type: File
+  - name: fluent-bit-state
+    hostPath:
+      path: /var/fluent-bit/state
+      type: DirectoryOrCreate
+
+daemonSetVolumeMounts:
+  - name: varlog
+    mountPath: /var/log
+  - name: varlibdockercontainers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+  - name: etcmachineid
+    mountPath: /etc/machine-id
+    readOnly: true
+  - name: fluent-bit-state
+    mountPath: /var/fluent-bit/state

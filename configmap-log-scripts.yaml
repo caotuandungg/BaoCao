@@ -1,0 +1,118 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dung-log-generator-scripts
+  namespace: dung-lab
+  labels:
+    owner: dung
+    project: dung-lab
+    purpose: log-testing
+data:
+  fe.py: |
+    import json
+    import random
+    import time
+    from datetime import datetime, timezone
+
+    paths = ["/", "/home", "/login", "/products", "/cart"]
+
+    while True:
+        payload = {
+            "@timestamp": datetime.now(timezone.utc).isoformat(),
+            "service": "frontend",
+            "level": random.choice(["INFO", "INFO", "INFO", "WARN", "ERROR"]),
+            "event": random.choice(["page_view", "asset_load", "ui_action"]),
+            "environment": "lab",
+            "path": random.choice(paths),
+            "user_id": f"u{random.randint(1, 20):03}",
+            "session_id": f"s{random.randint(1000, 9999)}",
+            "response_time_ms": random.randint(20, 1500),
+            "message": "frontend generated log"
+        }
+        print(json.dumps(payload), flush=True)
+        time.sleep(2)
+
+  be.py: |
+    import json
+    import random
+    import time
+    from datetime import datetime, timezone
+
+    endpoints = ["/api/login", "/api/orders", "/api/profile", "/api/payment"]
+
+    while True:
+        status_code = random.choice([200, 200, 200, 201, 400, 500, 503])
+        level = "ERROR" if status_code >= 500 else ("WARN" if status_code >= 400 else "INFO")
+        payload = {
+            "@timestamp": datetime.now(timezone.utc).isoformat(),
+            "service": "backend",
+            "level": level,
+            "event": "api_request",
+            "environment": "lab",
+            "endpoint": random.choice(endpoints),
+            "request_id": f"req-{random.randint(10000, 99999)}",
+            "status_code": status_code,
+            "error_code": random.choice(["NONE", "ORDER_TIMEOUT", "DB_CONN_FAIL", "BAD_REQUEST"]),
+            "message": "backend generated log"
+        }
+        print(json.dumps(payload), flush=True)
+        time.sleep(3)
+
+  db.py: |
+    import json
+    import random
+    import time
+    from datetime import datetime, timezone
+
+    query_types = ["SELECT", "INSERT", "UPDATE", "DELETE"]
+    events = ["connection_ok", "slow_query", "auth_failed", "deadlock_detected"]
+
+    while True:
+        event = random.choice(events)
+        level = "INFO"
+        if event == "slow_query":
+            level = "WARN"
+        elif event in ["auth_failed", "deadlock_detected"]:
+            level = "ERROR"
+
+        payload = {
+            "@timestamp": datetime.now(timezone.utc).isoformat(),
+            "service": "database",
+            "level": level,
+            "event": event,
+            "environment": "lab",
+            "db_name": "appdb",
+            "query_type": random.choice(query_types),
+            "duration_ms": random.randint(5, 3000),
+            "db_user": random.choice(["app_user", "report_user", "admin"]),
+            "message": "database generated log"
+        }
+        print(json.dumps(payload), flush=True)
+        time.sleep(4)
+
+  web.py: |
+    import json
+    import random
+    import time
+    from datetime import datetime, timezone
+
+    methods = ["GET", "POST"]
+    paths = ["/", "/index.html", "/healthz", "/images/logo.png", "/api/proxy"]
+
+    while True:
+        status_code = random.choice([200, 200, 200, 404, 500, 502])
+        level = "ERROR" if status_code >= 500 else ("WARN" if status_code == 404 else "INFO")
+        payload = {
+            "@timestamp": datetime.now(timezone.utc).isoformat(),
+            "service": "webserver",
+            "level": level,
+            "event": "access_log",
+            "environment": "lab",
+            "method": random.choice(methods),
+            "path": random.choice(paths),
+            "status_code": status_code,
+            "client_ip": f"10.42.0.{random.randint(2, 254)}",
+            "message": "web generated log"
+        }
+        print(json.dumps(payload), flush=True)
+        time.sleep(2)

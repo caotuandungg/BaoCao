@@ -1,0 +1,192 @@
+Fluent Bit v5.0.0
+* Copyright (C) 2015-2025 The Fluent Bit Authors
+* Fluent Bit is a CNCF graduated project under the Fluent organization
+* https://fluentbit.io
+
+______ _                  _    ______ _ _           _____  _____           _            
+|  ___| |                | |   | ___ (_) |         |  ___||  _  |         | |           
+| |_  | |_   _  ___ _ __ | |_  | |_/ /_| |_  __   _|___ \ | |/' |______ __| | _____   __
+|  _| | | | | |/ _ \ '_ \| __| | ___ \ | __| \ \ / /   \ \|  /| |______/ _` |/ _ \ \ / /
+| |   | | |_| |  __/ | | | |_  | |_/ / | |_   \ V //\__/ /\ |_/ /     | (_| |  __/\ V / 
+\_|   |_|\__,_|\___|_| |_|\__| \____/|_|\__|   \_/ \____(_)\___/       \__,_|\___| \_/
+
+
+[2026/03/31 08:38:48.284] [ info] [fluent bit] version=5.0.0, commit=32a3cbbe12, pid=1
+[2026/03/31 08:38:48.284] [ info] [storage] ver=1.5.4, type=memory, sync=normal, checksum=off, max_chunks_up=128
+[2026/03/31 08:38:48.284] [ info] [simd    ] SSE2
+[2026/03/31 08:38:48.284] [ info] [cmetrics] version=2.0.5
+[2026/03/31 08:38:48.284] [ info] [ctraces ] version=0.7.0
+[2026/03/31 08:38:48.284] [ info] [input:tail:tail.0] initializing
+[2026/03/31 08:38:48.284] [ info] [input:tail:tail.0] storage_strategy='memory' (memory only)
+[2026/03/31 08:38:48.301] [ info] [filter:kubernetes:kubernetes.0] https=1 host=kubernetes.default.svc port=443
+[2026/03/31 08:38:48.309] [ info] [filter:kubernetes:kubernetes.0]  token updated
+[2026/03/31 08:38:48.310] [ info] [filter:kubernetes:kubernetes.0] local POD info OK
+[2026/03/31 08:38:48.315] [ info] [filter:kubernetes:kubernetes.0] testing connectivity with API server...
+[2026/03/31 08:38:58.331] [error] [net] connection #71 timeout after 10 seconds to: kubernetes.default.svc:443
+[2026/03/31 08:38:58.331] [error] [filter:kubernetes:kubernetes.0] kube api upstream connection error
+[2026/03/31 08:38:58.331] [ warn] [filter:kubernetes:kubernetes.0] could not get meta for POD fluent-bit-47whl
+[2026/03/31 08:38:58.336] [ info] [output:es:es.0] worker #0 started
+[2026/03/31 08:38:58.336] [ info] [output:es:es.0] worker #1 started
+[2026/03/31 08:38:58.336] [ info] [http_server] listen iface=0.0.0.0 tcp_port=2020
+[2026/03/31 08:38:58.336] [ info] [sp] stream processor started
+[2026/03/31 08:38:58.336] [ info] [engine] Shutdown Grace Period=5, Shutdown Input Grace Period=2
+[2026/03/31 08:38:58.337] [ info] [input:tail:tail.0] inotify_fs_add(): inode=3177186 watch_fd=1 name=/var/log/containers/alertmanager-prometheus-operator-kube-p-alertmanager-0_monitoring_alertmanager-9b1683309c59be74832868939ab8910bac20d2e891cb20bb897c8f26dc712f4d.log
+[2026/03/31 08:38:58.337] [ info] [input:tail:tail.0] inotify_fs_add(): inode=3177216 watch_fd=2 name=/var/log/containers/alertmanager-prometheus-operator-kube-p-alertmanager-0_monitoring_config-reloader-620f478c1f22b836f92c4cf25c168eeab1686980b09c6425b11af78f0c86aca8.log
+[2026/03/31 08:38:58.337] [ info] [input:tail:tail.0] inotify_fs_add(): inode=3177117 watch_fd=3 name=/var/log/containers/alertmanager-prometheus-operator-kube-p-alertmanager-0_monitoring_init-config-reloader-057e11fe8a43c9ff56a465fecbbd879c6c2878c001e6ecdf42b49c9a0d357fb9.log
+[2026/03/31 08:38:58.337] [ info] [input:tail:tail.0] inotify_fs_add(): inode=2621456 watch_fd=4 name=/var/log/containers/argocd-application-controller-0_argocd_argocd-application-controller-748084d47c1e9988e87e804e6ea0a7196da495c0f84e1be4306184d85de91d92.log
+[2026/03/31 08:38:58.337] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1868724 watch_fd=5 name=/var/log/containers/argocd-applicationset-controller-6bccd46897-fk8lj_argocd_argocd-applicationset-controller-df01286bd305b02b6459a41e9e9975823010a22952d36718a13200e1ea03395f.log
+[2026/03/31 08:38:58.337] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1868759 watch_fd=6 name=/var/log/containers/argocd-dex-server-66cd865b7d-gkwxc_argocd_copyutil-29ad4c532237fe9d8693001aca42e9483a46a3ff76e41e4b4700f76dab8ffda6.log
+[2026/03/31 08:38:58.337] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1868804 watch_fd=7 name=/var/log/containers/argocd-dex-server-66cd865b7d-gkwxc_argocd_dex-4e6b402f03c26fa6e30f64ed1c52c0fd293dbc95808039f8ccde62d0b7fa3c7e.log
+[2026/03/31 08:38:58.337] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1868758 watch_fd=8 name=/var/log/containers/argocd-notifications-controller-758bb48db8-qwknj_argocd_argocd-notifications-controller-d87c3bdd5920ef5d4a999a86be0b414e737ae8795f2f812e18ac5ee0d5370f26.log
+[2026/03/31 08:38:58.337] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1868763 watch_fd=9 name=/var/log/containers/argocd-redis-6f48d98657-4kjvj_argocd_redis-5ed0b03ae151e58b401a59d22dac21ce800aafa72d86a92d8a013fdd6d42e1c1.log
+[2026/03/31 08:38:58.337] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1868679 watch_fd=10 name=/var/log/containers/argocd-redis-6f48d98657-4kjvj_argocd_secret-init-2b075300d809e590575a266b1889ccfc1c5932cb4a70c6e384497bf99ea71fad.log
+[2026/03/31 08:38:58.338] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1868773 watch_fd=11 name=/var/log/containers/argocd-repo-server-95686c97b-jcf47_argocd_argocd-repo-server-4e149caeaec50465ec01b427bb2c281bf8ce39388a0683032f5b85b44e077135.log
+[2026/03/31 08:38:58.338] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1868693 watch_fd=12 name=/var/log/containers/argocd-repo-server-95686c97b-jcf47_argocd_copyutil-b55646c5f33d3fe4f5564fb137ff952181eb68cfbe91779037799b6e5f7b64f3.log
+[2026/03/31 08:38:58.338] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1859269 watch_fd=13 name=/var/log/containers/argocd-server-6c786c87db-ksflm_argocd_argocd-server-3ad835ae4a50c2faf7ec1a7af997cd81c9e986ac703013e4e053a8ea84d89408.log
+[2026/03/31 08:38:58.338] [ info] [input:tail:tail.0] inotify_fs_add(): inode=572940 watch_fd=14 name=/var/log/containers/cilium-envoy-dp5fl_kube-system_cilium-envoy-f7914781beb9c28e6f2a073f152c91a64cc97a474c30b6b4ae52c045e145d06d.log
+[2026/03/31 08:38:58.338] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573804 watch_fd=15 name=/var/log/containers/cilium-sjdhc_kube-system_apply-sysctl-overwrites-4aa8fbc4c0ae8c90db68fecb37a523bef00c94613ad5471d3af8667b25c5eafc.log
+[2026/03/31 08:38:58.339] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573874 watch_fd=16 name=/var/log/containers/cilium-sjdhc_kube-system_cilium-agent-80c480e0ef85f158c993335fcbd44c3323c8b407a198ade2b7f061d8a310230d.log
+[2026/03/31 08:38:58.339] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573836 watch_fd=17 name=/var/log/containers/cilium-sjdhc_kube-system_clean-cilium-state-e7761c4e4ef187348745169510c3b4add5464ff52487b3f365e064fcb228e0e0.log
+[2026/03/31 08:38:58.339] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573474 watch_fd=18 name=/var/log/containers/cilium-sjdhc_kube-system_config-7ea4c5c9381e16973c09a1ea57cea10cc3dc567fb4faa5fa145e4f96f6a46ff6.log
+[2026/03/31 08:38:58.339] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573853 watch_fd=19 name=/var/log/containers/cilium-sjdhc_kube-system_install-cni-binaries-5b73d3c47168281b4282f04b594953181cda8e38c0955ed933f841e24a8460aa.log
+[2026/03/31 08:38:58.339] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573821 watch_fd=20 name=/var/log/containers/cilium-sjdhc_kube-system_mount-bpf-fs-0a97e7c9dd63be5082f6fbb90c721a311de30dedd61d2169e6b163e0e1dbf993.log
+[2026/03/31 08:38:58.340] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573787 watch_fd=21 name=/var/log/containers/cilium-sjdhc_kube-system_mount-cgroup-e29037a2a7dd2468792126764ff65349183f49261e1516da75333ea8bf927789.log
+[2026/03/31 08:38:58.340] [ info] [input:tail:tail.0] inotify_fs_add(): inode=3146862 watch_fd=22 name=/var/log/containers/fluent-bit-47whl_elk_fluent-bit-dc73e64b9e3dba4ac09355bd0eb2da163611ca0358d2e918612d039ebc571235.log
+[2026/03/31 08:38:58.340] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1884368 watch_fd=23 name=/var/log/containers/jenkins-7987d5fc6c-qh884_jenkins_jenkins-22c5f194c8496907c7d1d695acbd9e7006eca48e9ef97e3f6ea66ea1b5b396e9.log
+[2026/03/31 08:38:58.340] [ info] [input:tail:tail.0] inotify_fs_add(): inode=3145884 watch_fd=24 name=/var/log/containers/neuvector-controller-pod-66ffdbd969-jb4s6_neuvector_neuvector-controller-pod-c96860cd79b2094449955df1b59fe70fa3ecc5f4beda3052ff6ba2a8011c2aa6.log
+[2026/03/31 08:38:58.340] [ info] [input:tail:tail.0] inotify_fs_add(): inode=3145765 watch_fd=25 name=/var/log/containers/neuvector-enforcer-pod-9wdgn_neuvector_neuvector-enforcer-pod-6e933ad670f6a9f0f619113ff1ef3dbb02ec1ce16e239b811241dcb61b6bc395.log
+Fluent Bit v5.0.0
+* Copyright (C) 2015-2025 The Fluent Bit Authors
+* Fluent Bit is a CNCF graduated project under the Fluent organization
+* https://fluentbit.io
+
+______ _                  _    ______ _ _           _____  _____           _            
+|  ___| |                | |   | ___ (_) |         |  ___||  _  |         | |           
+| |_  | |_   _  ___ _ __ | |_  | |_/ /_| |_  __   _|___ \ | |/' |______ __| | _____   __
+|  _| | | | | |/ _ \ '_ \| __| | ___ \ | __| \ \ / /   \ \|  /| |______/ _` |/ _ \ \ / /
+| |   | | |_| |  __/ | | | |_  | |_/ / | |_   \ V //\__/ /\ |_/ /     | (_| |  __/\ V / 
+\_|   |_|\__,_|\___|_| |_|\__| \____/|_|\__|   \_/ \____(_)\___/       \__,_|\___| \_/
+
+
+[2026/03/31 08:38:37.826] [ info] [fluent bit] version=5.0.0, commit=32a3cbbe12, pid=1
+[2026/03/31 08:38:37.826] [ info] [storage] ver=1.5.4, type=memory, sync=normal, checksum=off, max_chunks_up=128
+[2026/03/31 08:38:37.826] [ info] [simd    ] SSE2
+[2026/03/31 08:38:37.826] [ info] [cmetrics] version=2.0.5
+[2026/03/31 08:38:37.826] [ info] [ctraces ] version=0.7.0
+[2026/03/31 08:38:37.826] [ info] [input:tail:tail.0] initializing
+[2026/03/31 08:38:37.826] [ info] [input:tail:tail.0] storage_strategy='memory' (memory only)
+[2026/03/31 08:38:37.831] [ info] [filter:kubernetes:kubernetes.0] https=1 host=kubernetes.default.svc port=443
+[2026/03/31 08:38:37.838] [ info] [filter:kubernetes:kubernetes.0]  token updated
+[2026/03/31 08:38:37.838] [ info] [filter:kubernetes:kubernetes.0] local POD info OK
+[2026/03/31 08:38:37.843] [ info] [filter:kubernetes:kubernetes.0] testing connectivity with API server...
+[2026/03/31 08:38:47.858] [error] [net] connection #60 timeout after 10 seconds to: kubernetes.default.svc:443
+[2026/03/31 08:38:47.858] [error] [filter:kubernetes:kubernetes.0] kube api upstream connection error
+[2026/03/31 08:38:47.858] [ warn] [filter:kubernetes:kubernetes.0] could not get meta for POD fluent-bit-9ltmh
+[2026/03/31 08:38:47.869] [ info] [http_server] listen iface=0.0.0.0 tcp_port=2020
+[2026/03/31 08:38:47.869] [ info] [sp] stream processor started
+[2026/03/31 08:38:47.869] [ info] [output:es:es.0] worker #0 started
+[2026/03/31 08:38:47.869] [ info] [engine] Shutdown Grace Period=5, Shutdown Input Grace Period=2
+[2026/03/31 08:38:47.869] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573084 watch_fd=1 name=/var/log/containers/cilium-7dqkx_kube-system_apply-sysctl-overwrites-419f467086dc5d24936ecfc162b7031aa9cde471f03b78cc12992105e3736c54.log
+[2026/03/31 08:38:47.869] [ info] [output:es:es.0] worker #1 started
+[2026/03/31 08:38:47.869] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573154 watch_fd=2 name=/var/log/containers/cilium-7dqkx_kube-system_cilium-agent-0392790bdaa5623314854f18d1cb0c56d2709ccf083fc3275a5500dd7d14638f.log
+[2026/03/31 08:38:47.869] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573116 watch_fd=3 name=/var/log/containers/cilium-7dqkx_kube-system_clean-cilium-state-95419f9f95ffe0e1ef140dfab4f17a497f37d4e288d711a5684de87b07002609.log
+[2026/03/31 08:38:47.869] [ info] [input:tail:tail.0] inotify_fs_add(): inode=572754 watch_fd=4 name=/var/log/containers/cilium-7dqkx_kube-system_config-cec5fc883695eda4a3db1a775d8a88953ef7dc4f254a521d27b3086019a80798.log
+[2026/03/31 08:38:47.869] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573133 watch_fd=5 name=/var/log/containers/cilium-7dqkx_kube-system_install-cni-binaries-961141f4123ee922da8e21678e647f73a714e381f8b32aca94132b54e1a68ae1.log
+[2026/03/31 08:38:47.869] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573101 watch_fd=6 name=/var/log/containers/cilium-7dqkx_kube-system_mount-bpf-fs-c160b277c61a773d252d149932e0e8429d3765729e703883562536975cd73cb9.log
+[2026/03/31 08:38:47.869] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573067 watch_fd=7 name=/var/log/containers/cilium-7dqkx_kube-system_mount-cgroup-4188c6f668a898eb33da74bf224e5072f30ed9bd18ddd66558b108126dc18b80.log
+[2026/03/31 08:38:47.869] [ info] [input:tail:tail.0] inotify_fs_add(): inode=568282 watch_fd=8 name=/var/log/containers/cilium-envoy-c5c2d_kube-system_cilium-envoy-df293c614f672eee7ea999c6cc5c7168f8bb0a91caf05afad05a7061a99427c3.log
+[2026/03/31 08:38:47.870] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1079007 watch_fd=9 name=/var/log/containers/cnpg-controller-manager-7d4d7f5854-5br77_cnpg-system_manager-a4dbdcf8281b31bdce5649b70f6d36fe856b3b53fe018089aa84837ea5699060.log
+[2026/03/31 08:38:47.870] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1079006 watch_fd=10 name=/var/log/containers/cnpg-controller-manager-7d4d7f5854-5br77_cnpg-system_manager-fb95d6b27b160f623f6a209c0343a8cbc42f4f24aff9690f321b3b3751a45e8e.log
+[2026/03/31 08:38:47.870] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1863375 watch_fd=11 name=/var/log/containers/elasticsearch-master-1_elk_configure-sysctl-fdf5b25612d3b9db0c43bfbe6b7ff5730ec214161b91fb14b7d8bfe745e05cca.log
+[2026/03/31 08:38:47.870] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1863402 watch_fd=12 name=/var/log/containers/elasticsearch-master-1_elk_elasticsearch-9a0b1d9704c8b3392f0612aa8acf784ba84348d853c96d50e248d7056061d2e3.log
+[2026/03/31 08:38:47.870] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1632877 watch_fd=13 name=/var/log/containers/elasticsearch-master-2_elk_configure-sysctl-c6f5449b8e2391bab7b4e9f2d87a02cd578530f3e723c7959bc80d00c1360f54.log
+[2026/03/31 08:38:47.870] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1632891 watch_fd=14 name=/var/log/containers/elasticsearch-master-2_elk_elasticsearch-100e0d7234f5ae8a3871df0212af7feba4b6723e12d6007a8a44c6be53191f7f.log
+[2026/03/31 08:38:57.887] [error] [net] connection #92 timeout after 10 seconds to: kubernetes.default.svc:443
+[2026/03/31 08:38:57.887] [error] [filter:kubernetes:kubernetes.0] kube api upstream connection error
+[2026/03/31 08:38:57.887] [ info] [input:tail:tail.0] inode=559383 link_rotated: /var/log/containers/fluent-bit-9ltmh_elk_fluent-bit-aa5f2afffebcf69432d1964b1a1ad569f8d617f4c14e6246f9c1be2f35e89165.log
+[2026/03/31 08:38:57.887] [ info] [input:tail:tail.0] inode=1894095 handle rotation(): /var/log/containers/fluent-bit-9ltmh_elk_fluent-bit-aa5f2afffebcf69432d1964b1a1ad569f8d617f4c14e6246f9c1be2f35e89165.log => /var/log/pods/elk_fluent-bit-9ltmh_8781b7f3-59dc-41cf-b7b5-b1400fe6006b/fluent-bit/2.log (deleted)
+[2026/03/31 08:38:57.887] [error] [/src/fluent-bit/plugins/in_tail/tail_fs_inotify.c:147 errno=2] No such file or directory
+[2026/03/31 08:38:57.887] [error] [input:tail:tail.0] inode=1894095 cannot register file /var/log/pods/elk_fluent-bit-9ltmh_8781b7f3-59dc-41cf-b7b5-b1400fe6006b/fluent-bit/2.log (deleted)
+[2026/03/31 08:38:57.888] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1894251 watch_fd=15 name=/var/log/containers/fluent-bit-9ltmh_elk_fluent-bit-be23208484d652b477f9038f54079163c0dab44fbb566095a99c99cb1164b8d4.log
+[2026/03/31 08:38:57.888] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1314490 watch_fd=16 name=/var/log/containers/keycloak-0_keycloak_keycloak-5e54808e56a6e59afe25dda9dad34b16ec0c1db801ade6c585d973ddbcb74950.log
+[2026/03/31 08:38:57.888] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1894223 watch_fd=17 name=/var/log/containers/neuvector-controller-pod-66ffdbd969-p5rb7_neuvector_neuvector-controller-pod-8c8c76591fc88adf5290fcd89658d6ad8fe31040d4011813990c7148abf773a2.log
+[2026/03/31 08:38:57.888] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1894224 watch_fd=18 name=/var/log/containers/neuvector-enforcer-pod-zg6x4_neuvector_neuvector-enforcer-pod-57cf633575fe2e438d1c85a9d977e050211fb870be48fbd2e97e5cc8be4ce9f0.log
+Fluent Bit v5.0.0
+* Copyright (C) 2015-2025 The Fluent Bit Authors
+* Fluent Bit is a CNCF graduated project under the Fluent organization
+* https://fluentbit.io
+
+______ _                  _    ______ _ _           _____  _____           _            
+|  ___| |                | |   | ___ (_) |         |  ___||  _  |         | |           
+| |_  | |_   _  ___ _ __ | |_  | |_/ /_| |_  __   _|___ \ | |/' |______ __| | _____   __
+|  _| | | | | |/ _ \ '_ \| __| | ___ \ | __| \ \ / /   \ \|  /| |______/ _` |/ _ \ \ / /
+| |   | | |_| |  __/ | | | |_  | |_/ / | |_   \ V //\__/ /\ |_/ /     | (_| |  __/\ V / 
+\_|   |_|\__,_|\___|_| |_|\__| \____/|_|\__|   \_/ \____(_)\___/       \__,_|\___| \_/
+
+
+[2026/03/31 08:38:07.733] [ info] [fluent bit] version=5.0.0, commit=32a3cbbe12, pid=1
+[2026/03/31 08:38:07.734] [ info] [storage] ver=1.5.4, type=memory, sync=normal, checksum=off, max_chunks_up=128
+[2026/03/31 08:38:07.734] [ info] [simd    ] SSE2
+[2026/03/31 08:38:07.734] [ info] [cmetrics] version=2.0.5
+[2026/03/31 08:38:07.734] [ info] [ctraces ] version=0.7.0
+[2026/03/31 08:38:07.734] [ info] [input:tail:tail.0] initializing
+[2026/03/31 08:38:07.734] [ info] [input:tail:tail.0] storage_strategy='memory' (memory only)
+[2026/03/31 08:38:07.747] [ info] [filter:kubernetes:kubernetes.0] https=1 host=kubernetes.default.svc port=443
+[2026/03/31 08:38:07.753] [ info] [filter:kubernetes:kubernetes.0]  token updated
+[2026/03/31 08:38:07.753] [ info] [filter:kubernetes:kubernetes.0] local POD info OK
+[2026/03/31 08:38:07.759] [ info] [filter:kubernetes:kubernetes.0] testing connectivity with API server...
+[2026/03/31 08:38:17.765] [error] [net] connection #68 timeout after 10 seconds to: kubernetes.default.svc:443
+[2026/03/31 08:38:17.765] [error] [filter:kubernetes:kubernetes.0] kube api upstream connection error
+[2026/03/31 08:38:17.765] [ warn] [filter:kubernetes:kubernetes.0] could not get meta for POD fluent-bit-gnjmq
+[2026/03/31 08:38:17.766] [ info] [http_server] listen iface=0.0.0.0 tcp_port=2020
+[2026/03/31 08:38:17.766] [ info] [sp] stream processor started
+[2026/03/31 08:38:17.766] [ info] [engine] Shutdown Grace Period=5, Shutdown Input Grace Period=2
+[2026/03/31 08:38:17.766] [ info] [input:tail:tail.0] inotify_fs_add(): inode=572953 watch_fd=1 name=/var/log/containers/cilium-envoy-9nrhb_kube-system_cilium-envoy-85a6798248bc47e80d7f03cfd1513427f40cabec3d9ac9cdc8f449b0d7344f9a.log
+[2026/03/31 08:38:17.767] [ info] [input:tail:tail.0] inotify_fs_add(): inode=786457 watch_fd=2 name=/var/log/containers/cilium-zh4zh_kube-system_apply-sysctl-overwrites-6842664584e75c8b8e857130838117ab99c88df914fec6287f29a62f49bde3a7.log
+[2026/03/31 08:38:17.767] [ info] [input:tail:tail.0] inotify_fs_add(): inode=786521 watch_fd=3 name=/var/log/containers/cilium-zh4zh_kube-system_cilium-agent-c7c14ebd1614217470b49c1e62723a1e10e8da5d64cad9ad7b8febca85b9a9fe.log
+[2026/03/31 08:38:17.767] [ info] [input:tail:tail.0] inotify_fs_add(): inode=786487 watch_fd=4 name=/var/log/containers/cilium-zh4zh_kube-system_clean-cilium-state-d29f0f6aa6745cff8302282e7b841711fe146e5dd598c509236672f714d0395f.log
+[2026/03/31 08:38:17.767] [ info] [input:tail:tail.0] inotify_fs_add(): inode=573481 watch_fd=5 name=/var/log/containers/cilium-zh4zh_kube-system_config-cb502b9cb8a629b19009a8c70282abd2e667247a1594e07283c783b38fc64f57.log
+[2026/03/31 08:38:17.767] [ info] [input:tail:tail.0] inotify_fs_add(): inode=786503 watch_fd=6 name=/var/log/containers/cilium-zh4zh_kube-system_install-cni-binaries-823602c4fce13bb136d6392ebf7c818893ed1d63f13e7f714376e46df48feb32.log
+[2026/03/31 08:38:17.767] [ info] [input:tail:tail.0] inotify_fs_add(): inode=786473 watch_fd=7 name=/var/log/containers/cilium-zh4zh_kube-system_mount-bpf-fs-56a11aca9bb9fd138a2042553249041271001adcb39b6450ef970e23870cfd6a.log
+[2026/03/31 08:38:17.767] [ info] [input:tail:tail.0] inotify_fs_add(): inode=786441 watch_fd=8 name=/var/log/containers/cilium-zh4zh_kube-system_mount-cgroup-33eb8d04e466fc792b4f6801a5098dbecdb5d085dd5a0b5968e55829732da499.log
+[2026/03/31 08:38:17.767] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1835053 watch_fd=9 name=/var/log/containers/elasticsearch-master-0_elk_configure-sysctl-063e17039ac62bc2f7ae514c345e6d3b891bb69616625aec6f4dfa1bb5a9a232.log
+[2026/03/31 08:38:17.767] [ info] [output:es:es.0] worker #0 started
+[2026/03/31 08:38:17.767] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1835067 watch_fd=10 name=/var/log/containers/elasticsearch-master-0_elk_elasticsearch-d29b74ec0ebdfed76167449ebb5084ac0339a4578af77f7d2b2a38c603f1d359.log
+[2026/03/31 08:38:17.767] [ info] [input:tail:tail.0] inotify_fs_add(): inode=2154702 watch_fd=11 name=/var/log/containers/fluent-bit-gnjmq_elk_fluent-bit-76a16484aa6e4fe346cb8c97391c4e1b476eec049cf07b8118ff6fc7c834e3e1.log
+[2026/03/31 08:38:17.767] [ info] [input:tail:tail.0] inode=524308 link_rotated: /var/log/containers/fluent-bit-gnjmq_elk_fluent-bit-c10167e1236fae63f456c0a6cd3999461c563ab9246d84020c4137941059be0c.log
+[2026/03/31 08:38:17.767] [ info] [input:tail:tail.0] inode=2154679 handle rotation(): /var/log/containers/fluent-bit-gnjmq_elk_fluent-bit-c10167e1236fae63f456c0a6cd3999461c563ab9246d84020c4137941059be0c.log => /var/log/pods/elk_fluent-bit-gnjmq_cf44a15d-71d4-49b2-891d-ae4f1296eac0/fluent-bit/2.log (deleted)
+[2026/03/31 08:38:17.767] [error] [/src/fluent-bit/plugins/in_tail/tail_fs_inotify.c:147 errno=2] No such file or directory
+[2026/03/31 08:38:17.767] [error] [input:tail:tail.0] inode=2154679 cannot register file /var/log/pods/elk_fluent-bit-gnjmq_cf44a15d-71d4-49b2-891d-ae4f1296eac0/fluent-bit/2.log (deleted)
+[2026/03/31 08:38:17.767] [ info] [output:es:es.0] worker #1 started
+[2026/03/31 08:38:27.780] [error] [net] connection #99 timeout after 10 seconds to: kubernetes.default.svc:443
+[2026/03/31 08:38:27.780] [error] [filter:kubernetes:kubernetes.0] kube api upstream connection error
+[2026/03/31 08:38:27.780] [ info] [input:tail:tail.0] inotify_fs_add(): inode=787948 watch_fd=12 name=/var/log/containers/helm-install-rke2-metrics-server-mm7kb_kube-system_helm-ea8e2fe754ff772d59f06a6de9fa8d3e565b5902f739c6cf353b12d8859d2047.log
+[2026/03/31 08:38:27.780] [ info] [input:tail:tail.0] inotify_fs_add(): inode=787958 watch_fd=13 name=/var/log/containers/helm-install-rke2-runtimeclasses-qckfh_kube-system_helm-eac7259522fe93bd5f95bd0909210d43d27d37bd0fbd7b161bce04000fa28c1d.log
+[2026/03/31 08:38:27.780] [ info] [input:tail:tail.0] inotify_fs_add(): inode=787963 watch_fd=14 name=/var/log/containers/helm-install-rke2-snapshot-controller-crd-qvrgn_kube-system_helm-f0a88b8c9d2afbdd9dc4dfcd9a66f5e1dedaad9c2516bf1793dd1ef874d57b1b.log
+[2026/03/31 08:38:27.780] [ info] [input:tail:tail.0] inotify_fs_add(): inode=788013 watch_fd=15 name=/var/log/containers/helm-install-rke2-snapshot-controller-gqsn8_kube-system_helm-22ab2fe7e00c3cc2bdd8929917c28e07b7fc5b97ee83b2d37131e125376e26e9.log
+[2026/03/31 08:38:27.780] [ info] [input:tail:tail.0] inotify_fs_add(): inode=2121446 watch_fd=16 name=/var/log/containers/keycloak-1_keycloak_keycloak-b6a3f567b28034e223286332e88b4130d9ab3453f59d742285e91183efd6a47d.log
+[2026/03/31 08:38:27.781] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1882515 watch_fd=17 name=/var/log/containers/kibana-kibana-894d6648-qstwd_elk_kibana-368aa149bdeadf8eb0822340c650e271127cdc2fddf0a126fe21985b698a4233.log
+[2026/03/31 08:38:27.781] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1316544 watch_fd=18 name=/var/log/containers/mysql-operator-868f798d97-qjld7_mysql-operator_mysql-operator-8449089d569461b90efe19eab938b62c3e0248acfa5ba4a8cf9157f2d712f939.log
+[2026/03/31 08:38:37] [engine] caught signal (SIGTERM)
+[2026/03/31 08:38:37.797] [error] [net] connection #99 timeout after 10 seconds to: kubernetes.default.svc:443
+[2026/03/31 08:38:37.797] [error] [filter:kubernetes:kubernetes.0] kube api upstream connection error
+[2026/03/31 08:38:47.817] [error] [net] connection #99 timeout after 10 seconds to: kubernetes.default.svc:443
+[2026/03/31 08:38:47.817] [error] [filter:kubernetes:kubernetes.0] kube api upstream connection error
+[2026/03/31 08:38:47.817] [ info] [input:tail:tail.0] inotify_fs_add(): inode=2154636 watch_fd=19 name=/var/log/containers/neuvector-enforcer-pod-9gwd6_neuvector_neuvector-enforcer-pod-6a4ca62e5498f203b595eec4025fd0c447d2c7286776ea389b0607f007f9cebf.log
+[2026/03/31 08:38:47.817] [ info] [input:tail:tail.0] inotify_fs_add(): inode=2124827 watch_fd=20 name=/var/log/containers/neuvector-scanner-pod-698b7b9b5-b2jqw_neuvector_neuvector-scanner-pod-78dd83ca3277237e0bd32cc61d86288040e97879fbdede038cabbfffbeee7679.log
+[2026/03/31 08:38:57.833] [error] [net] connection #99 timeout after 10 seconds to: kubernetes.default.svc:443
+[2026/03/31 08:38:57.833] [error] [filter:kubernetes:kubernetes.0] kube api upstream connection error
+[2026/03/31 08:38:57.833] [ info] [input:tail:tail.0] inotify_fs_add(): inode=791763 watch_fd=21 name=/var/log/containers/openstack-cinder-csi-controllerplugin-746d568bb4-8gc7p_kube-system_cinder-csi-plugin-b6a3769417352d77ceada329a6a4f58f4d041a8896cc8c070682919c5447f296.log
+[2026/03/31 08:38:57.833] [ info] [input:tail:tail.0] inotify_fs_add(): inode=792989 watch_fd=22 name=/var/log/containers/openstack-cinder-csi-controllerplugin-746d568bb4-8gc7p_kube-system_csi-attacher-1d4dbc6e84906cc9ca814f8e2958fd74052570807dbc6a3b8e7fa2e31989fd9d.log
+[2026/03/31 08:38:57.834] [ info] [input:tail:tail.0] inotify_fs_add(): inode=792974 watch_fd=23 name=/var/log/containers/openstack-cinder-csi-controllerplugin-746d568bb4-8gc7p_kube-system_csi-attacher-201e3ab67f9946c277a6f88921e0e9d6686fd88705090c32889b8ac16843accb.log
+[2026/03/31 08:38:57.834] [ info] [input:tail:tail.0] inotify_fs_add(): inode=793000 watch_fd=24 name=/var/log/containers/openstack-cinder-csi-controllerplugin-746d568bb4-8gc7p_kube-system_csi-provisioner-3537f4eaf8fb42d769ec2096ddf779c736174d43700506770599df8e15485bee.log
+[2026/03/31 08:38:57.834] [ info] [input:tail:tail.0] inotify_fs_add(): inode=792999 watch_fd=25 name=/var/log/containers/openstack-cinder-csi-controllerplugin-746d568bb4-8gc7p_kube-system_csi-provisioner-d7caa27f3c0aedfbacc21906d5ec53d1991527859a7631e9262ce63d73a217c4.log
+[2026/03/31 08:38:57.834] [ info] [input:tail:tail.0] inotify_fs_add(): inode=793002 watch_fd=26 name=/var/log/containers/openstack-cinder-csi-controllerplugin-746d568bb4-8gc7p_kube-system_csi-resizer-66f9f119485bf08e537638b15f0c7877a9ac9512fd9475c04ce2bbe8c616f4ae.log
+[2026/03/31 08:38:57.834] [ info] [input:tail:tail.0] inotify_fs_add(): inode=792998 watch_fd=27 name=/var/log/containers/openstack-cinder-csi-controllerplugin-746d568bb4-8gc7p_kube-system_csi-resizer-841b55cf8bde8b327a0ca29517dd8947d6aad02789516ba95f1b678cc01014f6.log
+[2026/03/31 08:38:57.834] [ info] [input:tail:tail.0] inotify_fs_add(): inode=793003 watch_fd=28 name=/var/log/containers/openstack-cinder-csi-controllerplugin-746d568bb4-8gc7p_kube-system_csi-snapshotter-49332a890418ad9d2c5702de40e71b58aeb097ce24609e93d05d16882003a4b2.log
+[2026/03/31 08:38:57.834] [ info] [input:tail:tail.0] inotify_fs_add(): inode=792996 watch_fd=29 name=/var/log/containers/openstack-cinder-csi-controllerplugin-746d568bb4-8gc7p_kube-system_csi-snapshotter-bba2344f63af4b7edcb68b074ce91995ab3a5e6f30161e7b2269d0b134f3ec09.log
+[2026/03/31 08:38:57.834] [ info] [input:tail:tail.0] inotify_fs_add(): inode=791739 watch_fd=30 name=/var/log/containers/openstack-cinder-csi-controllerplugin-746d568bb4-8gc7p_kube-system_liveness-probe-f346870e53119fec81294305fcfaa6402bb0cf96461c8759d6459ba4890a9797.log
+[2026/03/31 08:38:57.834] [ info] [input:tail:tail.0] inotify_fs_add(): inode=791635 watch_fd=31 name=/var/log/containers/openstack-cinder-csi-nodeplugin-rqlqv_kube-system_cinder-csi-plugin-35f5ee2c34db5a5a395ecbadafff8a42fc815489579fd669dd9f4d82ceb93bf9.log
+[2026/03/31 08:38:57.834] [ info] [input:tail:tail.0] inotify_fs_add(): inode=791125 watch_fd=32 name=/var/log/containers/openstack-cinder-csi-nodeplugin-rqlqv_kube-system_liveness-probe-106b52ff3cbedbf37b43628cae9ff610e3a5f7ed73928a316b8a6b69bf360828.log
+[2026/03/31 08:38:57.834] [ info] [input:tail:tail.0] inotify_fs_add(): inode=789565 watch_fd=33 name=/var/log/containers/openstack-cinder-csi-nodeplugin-rqlqv_kube-system_node-driver-registrar-e225bb518d9e3b392aa6926b8c271d105a815adc1be74ca397c17936ba9b9ac7.log
+[2026/03/31 08:38:57.834] [ info] [input:tail:tail.0] inotify_fs_add(): inode=1075454 watch_fd=34 name=/var/log/containers/psql-keycloak-3_keycloak_bootstrap-controller-b425f4450e8cec185394cb61654c25cad20577cbe9ed023287e361a783d8777a.log

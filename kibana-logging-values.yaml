@@ -1,0 +1,10 @@
+elasticsearchHosts: "https://elasticsearch-master:9200"
+
+kibanaConfig:
+  kibana.yml: |
+    elasticsearch.ssl.verificationMode: none
+
+service:
+  port: 5601
+
+replicas: 1

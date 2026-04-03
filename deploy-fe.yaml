@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dung-fe-log-generator
+  namespace: dung-lab
+  labels:
+    owner: dung
+    project: dung-lab
+    purpose: log-testing
+    component: fe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dung-fe-log-generator
+  template:
+    metadata:
+      labels:
+        app: dung-fe-log-generator
+        owner: dung
+        project: dung-lab
+        purpose: log-testing
+        component: fe
+    spec:
+      containers:
+      - name: fe
+        image: python:3.11-alpine
+        command: ["python", "/scripts/fe.py"]
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+      volumes:
+      - name: scripts
+        configMap:
+          name: dung-log-generator-scripts

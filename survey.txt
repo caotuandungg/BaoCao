@@ -1,0 +1,171 @@
+NAME   STATUS   ROLES                       AGE   VERSION          INTERNAL-IP   EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION     CONTAINER-RUNTIME
+cp01   Ready    control-plane,etcd,master   63d   v1.33.6+rke2r1   172.18.0.51   <none>        Ubuntu 24.04.3 LTS   6.8.0-90-generic   containerd://2.1.5-k3s1
+cp02   Ready    control-plane,etcd,master   63d   v1.33.6+rke2r1   172.18.0.52   <none>        Ubuntu 24.04.3 LTS   6.8.0-90-generic   containerd://2.1.5-k3s1
+cp03   Ready    control-plane,etcd,master   63d   v1.33.6+rke2r1   172.18.0.53   <none>        Ubuntu 24.04.3 LTS   6.8.0-90-generic   containerd://2.1.5-k3s1
+wk01   Ready    <none>                      63d   v1.33.6+rke2r1   172.18.0.61   <none>        Ubuntu 24.04.3 LTS   6.8.0-90-generic   containerd://2.1.5-k3s1
+wk02   Ready    <none>                      63d   v1.33.6+rke2r1   172.18.0.62   <none>        Ubuntu 24.04.3 LTS   6.8.0-90-generic   containerd://2.1.5-k3s1
+wk03   Ready    <none>                      63d   v1.33.6+rke2r1   172.18.0.63   <none>        Ubuntu 24.04.3 LTS   6.8.0-90-generic   containerd://2.1.5-k3s1
+---NS---
+NAME                   STATUS   AGE
+app-target-namespace   Active   8d
+argocd                 Active   7d21h
+cilium-secrets         Active   63d
+cnpg-system            Active   63d
+default                Active   63d
+elk                    Active   51d
+jenkins                Active   8d
+keycloak               Active   63d
+kube-node-lease        Active   63d
+kube-public            Active   63d
+kube-system            Active   63d
+mysql-operator         Active   56d
+neuvector              Active   6d15h
+nginx-ingress          Active   62d
+psql-keycloak          Active   63d
+snipe-it               Active   57d
+sonobuoy               Active   49d
+---PODS---
+NAMESPACE        NAME                                                     READY   STATUS      RESTARTS          AGE
+argocd           argocd-application-controller-0                          1/1     Running     0                 7d21h
+argocd           argocd-applicationset-controller-6bccd46897-fk8lj        1/1     Running     0                 7d21h
+argocd           argocd-dex-server-66cd865b7d-gkwxc                       1/1     Running     0                 7d21h
+argocd           argocd-notifications-controller-758bb48db8-qwknj         1/1     Running     0                 7d21h
+argocd           argocd-redis-6f48d98657-4kjvj                            1/1     Running     0                 7d21h
+argocd           argocd-repo-server-95686c97b-jcf47                       1/1     Running     0                 7d21h
+argocd           argocd-server-6c786c87db-ksflm                           1/1     Running     0                 7d21h
+cnpg-system      cnpg-controller-manager-7d4d7f5854-5br77                 1/1     Running     105 (5h19m ago)   63d
+elk              elasticsearch-master-0                                   1/1     Running     0                 51d
+elk              elasticsearch-master-1                                   1/1     Running     0                 49d
+elk              elasticsearch-master-2                                   1/1     Running     0                 51d
+elk              kibana-kibana-894d6648-qstwd                             1/1     Running     0                 51d
+jenkins          jenkins-7987d5fc6c-qh884                                 1/1     Running     0                 8d
+keycloak         keycloak-0                                               1/1     Running     0                 62d
+keycloak         keycloak-1                                               1/1     Running     0                 49d
+keycloak         psql-keycloak-1                                          1/1     Running     0                 49d
+keycloak         psql-keycloak-2                                          1/1     Running     0                 63d
+keycloak         psql-keycloak-3                                          1/1     Running     0                 63d
+kube-system      cilium-4qqbf                                             1/1     Running     0                 63d
+kube-system      cilium-7dqkx                                             1/1     Running     0                 63d
+kube-system      cilium-envoy-6cbrv                                       1/1     Running     0                 63d
+kube-system      cilium-envoy-9nrhb                                       1/1     Running     0                 63d
+kube-system      cilium-envoy-c5c2d                                       1/1     Running     0                 63d
+kube-system      cilium-envoy-dp5fl                                       1/1     Running     0                 63d
+kube-system      cilium-envoy-hvs7w                                       1/1     Running     0                 63d
+kube-system      cilium-envoy-wdvgz                                       1/1     Running     0                 63d
+kube-system      cilium-ftr8g                                             1/1     Running     0                 63d
+kube-system      cilium-operator-669f5bbc66-gbh49                         1/1     Running     109 (5h19m ago)   63d
+kube-system      cilium-p9q9t                                             1/1     Running     0                 63d
+kube-system      cilium-sjdhc                                             1/1     Running     0                 63d
+kube-system      cilium-zh4zh                                             1/1     Running     0                 63d
+kube-system      etcd-cp01                                                1/1     Running     0                 63d
+kube-system      etcd-cp02                                                1/1     Running     0                 63d
+kube-system      etcd-cp03                                                1/1     Running     0                 63d
+kube-system      helm-install-rke2-coredns-tppnf                          0/1     Completed   0                 63d
+kube-system      helm-install-rke2-metrics-server-mm7kb                   0/1     Completed   0                 63d
+kube-system      helm-install-rke2-runtimeclasses-qckfh                   0/1     Completed   0                 63d
+kube-system      helm-install-rke2-snapshot-controller-crd-qvrgn          0/1     Completed   0                 63d
+kube-system      helm-install-rke2-snapshot-controller-gqsn8              0/1     Completed   1                 63d
+kube-system      kube-apiserver-cp01                                      1/1     Running     1 (49d ago)       49d
+kube-system      kube-apiserver-cp02                                      1/1     Running     1 (49d ago)       49d
+kube-system      kube-apiserver-cp03                                      1/1     Running     1 (49d ago)       49d
+kube-system      kube-controller-manager-cp01                             1/1     Running     37 (29h ago)      63d
+kube-system      kube-controller-manager-cp02                             1/1     Running     49 (13h ago)      63d
+kube-system      kube-controller-manager-cp03                             1/1     Running     42 (5h19m ago)    63d
+kube-system      kube-scheduler-cp01                                      1/1     Running     44 (22h ago)      63d
+kube-system      kube-scheduler-cp02                                      1/1     Running     38 (5h19m ago)    63d
+kube-system      kube-scheduler-cp03                                      1/1     Running     27 (4d2h ago)     63d
+kube-system      kube-vip-ds-4mvfl                                        1/1     Running     433 (5h20m ago)   63d
+kube-system      kube-vip-ds-6j2k4                                        1/1     Running     423 (178m ago)    63d
+kube-system      kube-vip-ds-frtgv                                        1/1     Running     403 (138m ago)    63d
+kube-system      openstack-cinder-csi-controllerplugin-746d568bb4-8gc7p   6/6     Running     892 (138m ago)    63d
+kube-system      openstack-cinder-csi-nodeplugin-2pmkt                    3/3     Running     0                 63d
+kube-system      openstack-cinder-csi-nodeplugin-2v65w                    3/3     Running     0                 63d
+kube-system      openstack-cinder-csi-nodeplugin-7r8k9                    3/3     Running     0                 63d
+kube-system      openstack-cinder-csi-nodeplugin-8nltk                    3/3     Running     0                 63d
+kube-system      openstack-cinder-csi-nodeplugin-rqlqv                    3/3     Running     0                 63d
+kube-system      openstack-cinder-csi-nodeplugin-slf8x                    3/3     Running     0                 63d
+kube-system      rke2-coredns-rke2-coredns-85d6696775-865ss               1/1     Running     0                 63d
+kube-system      rke2-coredns-rke2-coredns-85d6696775-jcgrc               1/1     Running     0                 63d
+kube-system      rke2-coredns-rke2-coredns-autoscaler-665b7f6f86-fqpjt    1/1     Running     0                 63d
+kube-system      rke2-metrics-server-7c4c577547-6m22k                     1/1     Running     0                 49d
+kube-system      rke2-snapshot-controller-696989ffdd-dlldh                1/1     Running     223 (138m ago)    63d
+mysql-operator   mysql-operator-868f798d97-qjld7                          1/1     Running     0                 56d
+neuvector        neuvector-controller-pod-66ffdbd969-jb4s6                1/1     Running     0                 6d15h
+neuvector        neuvector-controller-pod-66ffdbd969-p5rb7                1/1     Running     0                 6d15h
+neuvector        neuvector-controller-pod-66ffdbd969-tc9gl                1/1     Running     0                 6d15h
+neuvector        neuvector-enforcer-pod-9gwd6                             1/1     Running     4 (6d14h ago)     6d15h
+neuvector        neuvector-enforcer-pod-9wdgn                             1/1     Running     4 (6d14h ago)     6d15h
+neuvector        neuvector-enforcer-pod-zg6x4                             1/1     Running     4 (6d14h ago)     6d15h
+neuvector        neuvector-manager-pod-7c9f555b74-4f9zd                   1/1     Running     0                 6d15h
+neuvector        neuvector-scanner-pod-698b7b9b5-b2jqw                    1/1     Running     0                 7h14m
+neuvector        neuvector-scanner-pod-698b7b9b5-j7vg5                    1/1     Running     0                 7h14m
+neuvector        neuvector-updater-pod-29579040-zjghj                     0/1     Completed   0                 2d7h
+neuvector        neuvector-updater-pod-29580480-2srx7                     0/1     Completed   0                 31h
+neuvector        neuvector-updater-pod-29581920-g9ztn                     0/1     Completed   0                 7h14m
+nginx-ingress    nginx-ingress-69cb797b4d-jvljc                           1/1     Running     0                 52d
+sonobuoy         sonobuoy                                                 1/1     Running     0                 49d
+---DS---
+NAMESPACE     NAME                              DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR            AGE
+kube-system   cilium                            6         6         6       6            6           kubernetes.io/os=linux   63d
+kube-system   cilium-envoy                      6         6         6       6            6           kubernetes.io/os=linux   63d
+kube-system   kube-vip-ds                       3         3         3       3            3           <none>                   63d
+kube-system   openstack-cinder-csi-nodeplugin   6         6         6       6            6           <none>                   63d
+neuvector     neuvector-enforcer-pod            3         3         3       3            3           <none>                   6d15h
+---HELM---
+NAME                        	NAMESPACE  	REVISION	UPDATED                                	STATUS  	CHART                               	APP VERSION
+cilium                      	kube-system	1       	2026-01-27 02:40:33.216867089 +0000 UTC	deployed	cilium-1.18.6                       	1.18.6     
+cinder-csi                  	kube-system	1       	2026-01-27 04:05:37.895210114 +0000 UTC	deployed	openstack-cinder-csi-2.35.0         	v1.35.0    
+elasticsearch               	elk        	1       	2026-02-07 23:04:32.33566 +0700 +07    	deployed	elasticsearch-8.5.1                 	8.5.1      
+kibana                      	elk        	1       	2026-02-07 23:16:23.088722 +0700 +07   	deployed	kibana-8.5.1                        	8.5.1      
+rke2-coredns                	kube-system	1       	2026-01-27 02:39:25.034777886 +0000 UTC	deployed	rke2-coredns-1.44.300               	1.12.3     
+rke2-metrics-server         	kube-system	1       	2026-01-27 03:00:35.902600895 +0000 UTC	deployed	rke2-metrics-server-3.13.002        	0.8.0      
+rke2-runtimeclasses         	kube-system	1       	2026-01-27 03:00:35.885415647 +0000 UTC	deployed	rke2-runtimeclasses-0.1.000         	0.1.0      
+rke2-snapshot-controller    	kube-system	1       	2026-01-27 03:00:37.893752058 +0000 UTC	deployed	rke2-snapshot-controller-4.0.003    	v8.2.0     
+rke2-snapshot-controller-crd	kube-system	1       	2026-01-27 03:00:35.920351189 +0000 UTC	deployed	rke2-snapshot-controller-crd-4.0.003	v8.2.0     
+---SVC---
+NAMESPACE       NAME                                      TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                          AGE
+argocd          argocd-applicationset-controller          ClusterIP   10.101.230.197   <none>        7000/TCP,8080/TCP                7d21h
+argocd          argocd-dex-server                         ClusterIP   10.101.236.221   <none>        5556/TCP,5557/TCP,5558/TCP       7d21h
+argocd          argocd-metrics                            ClusterIP   10.101.73.170    <none>        8082/TCP                         7d21h
+argocd          argocd-notifications-controller-metrics   ClusterIP   10.101.164.152   <none>        9001/TCP                         7d21h
+argocd          argocd-redis                              ClusterIP   10.101.61.236    <none>        6379/TCP                         7d21h
+argocd          argocd-repo-server                        ClusterIP   10.101.102.170   <none>        8081/TCP,8084/TCP                7d21h
+argocd          argocd-server                             ClusterIP   10.101.191.80    <none>        80/TCP,443/TCP                   7d21h
+argocd          argocd-server-metrics                     ClusterIP   10.101.20.49     <none>        8083/TCP                         7d21h
+cnpg-system     cnpg-webhook-service                      ClusterIP   10.101.21.171    <none>        443/TCP                          63d
+default         kubernetes                                ClusterIP   10.101.0.1       <none>        443/TCP                          63d
+elk             elasticsearch-master                      ClusterIP   10.101.232.144   <none>        9200/TCP,9300/TCP                51d
+elk             elasticsearch-master-headless             ClusterIP   None             <none>        9200/TCP,9300/TCP                51d
+elk             kibana-kibana                             ClusterIP   10.101.82.190    <none>        5601/TCP                         51d
+jenkins         jenkins-service                           NodePort    10.101.249.213   <none>        8080:32000/TCP,50000:32562/TCP   8d
+keycloak        keycloak                                  ClusterIP   10.101.39.214    <none>        8080/TCP                         62d
+keycloak        keycloak-discovery                        ClusterIP   None             <none>        <none>                           62d
+keycloak        psql-keycloak-r                           ClusterIP   10.101.104.200   <none>        5432/TCP                         63d
+keycloak        psql-keycloak-ro                          ClusterIP   10.101.216.224   <none>        5432/TCP                         63d
+keycloak        psql-keycloak-rw                          ClusterIP   10.101.113.13    <none>        5432/TCP                         63d
+kube-system     cilium-envoy                              ClusterIP   None             <none>        9964/TCP                         63d
+kube-system     hubble-peer                               ClusterIP   10.101.92.4      <none>        443/TCP                          63d
+kube-system     rke2-coredns-rke2-coredns                 ClusterIP   10.101.0.10      <none>        53/UDP,53/TCP                    63d
+kube-system     rke2-metrics-server                       ClusterIP   10.101.213.108   <none>        443/TCP                          63d
+neuvector       neuvector-service-webui                   NodePort    10.101.103.206   <none>        8443:31724/TCP                   6d15h
+neuvector       neuvector-svc-admission-webhook           ClusterIP   10.101.113.252   <none>        443/TCP                          6d15h
+neuvector       neuvector-svc-controller                  ClusterIP   None             <none>        18300/TCP,18301/TCP,18301/UDP    6d15h
+neuvector       neuvector-svc-crd-webhook                 ClusterIP   10.101.140.72    <none>        443/TCP                          6d15h
+nginx-ingress   nginx-ingress                             NodePort    10.101.48.214    <none>        80:32053/TCP,443:31489/TCP       62d
+sonobuoy        sonobuoy-aggregator                       ClusterIP   10.101.64.185    <none>        8080/TCP                         49d
+---SC---
+NAME                   PROVISIONER                RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+csi-cinder-sc-delete   cinder.csi.openstack.org   Delete          Immediate           true                   63d
+csi-cinder-sc-retain   cinder.csi.openstack.org   Retain          Immediate           true                   63d
+---PV---
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                                             STORAGECLASS           VOLUMEATTRIBUTESCLASS   REASON   AGE
+pvc-01107097-9c89-4d0a-9ad1-303b7d41c0e4   20Gi       RWO            Retain           Bound    snipe-it/datadir-snipe-it-db-cluster-1            csi-cinder-sc-retain   <unset>                          56d
+pvc-024cee4e-a0e5-4f2a-bee2-11b23ae029af   30Gi       RWO            Delete           Bound    elk/elasticsearch-master-elasticsearch-master-1   csi-cinder-sc-delete   <unset>                          51d
+pvc-3528f13a-216d-432d-891c-4aa533888193   20Gi       RWO            Retain           Bound    snipe-it/datadir-snipe-it-db-cluster-0            csi-cinder-sc-retain   <unset>                          56d
+pvc-6720f6a4-f8eb-42a1-afbb-b5f6596ea9a9   10Gi       RWO            Retain           Bound    jenkins/jenkins-pvc                               csi-cinder-sc-retain   <unset>                          8d
+pvc-70f4ced8-e56c-4d9d-8593-374acd824b68   20Gi       RWO            Retain           Bound    keycloak/psql-keycloak-3                          csi-cinder-sc-retain   <unset>                          63d
+pvc-a41200e5-1233-42df-a44f-5f132feb4790   20Gi       RWO            Retain           Bound    keycloak/psql-keycloak-2                          csi-cinder-sc-retain   <unset>                          63d
+pvc-bb67b981-f4ef-4dde-8b96-05dc76d2bd9f   30Gi       RWO            Delete           Bound    elk/elasticsearch-master-elasticsearch-master-2   csi-cinder-sc-delete   <unset>                          51d
+pvc-bb85a056-a3a6-4829-b65c-6efb1f15071e   20Gi       RWO            Retain           Bound    snipe-it/datadir-snipe-it-db-cluster-2            csi-cinder-sc-retain   <unset>                          56d
+pvc-caebe999-fab7-4ca2-825e-1fac08787d5a   20Gi       RWO            Retain           Bound    keycloak/psql-keycloak-1                          csi-cinder-sc-retain   <unset>                          63d
+pvc-ecea039b-feae-4a19-87f9-dc5fa790d1ef   30Gi       RWO            Delete           Bound    elk/elasticsearch-master-elasticsearch-master-0   csi-cinder-sc-delete   <unset>                          51d

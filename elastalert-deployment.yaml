@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elastalert2
+  namespace: elk
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elastalert2
+  template:
+    metadata:
+      labels:
+        app: elastalert2
+    spec:
+      containers:
+      - name: elastalert2
+        image: jertel/elastalert2:2.21.0
+        args:
+          - "--config"
+          - "/opt/elastalert/config.yaml"
+          - "--verbose"
+        volumeMounts:
+        - name: config
+          mountPath: /opt/elastalert/config.yaml
+          subPath: config.yaml
+        - name: rules
+          mountPath: /opt/elastalert/rules
+      volumes:
+      - name: config
+        configMap:
+          name: elastalert-config
+      - name: rules
+        configMap:
+          name: elastalert-rules
