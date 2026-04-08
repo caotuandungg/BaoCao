@@ -1,3 +1,4 @@
+# https://github.com/elastic/helm-charts/blob/main/kibana/values.yaml
 elasticsearchHosts: "https://elasticsearch-master:9200"
 
 kibanaConfig:

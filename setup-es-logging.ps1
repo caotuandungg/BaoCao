@@ -1,3 +1,6 @@
+# ILM config:    https://www.elastic.co/guide/en/elasticsearch/reference/current/ilm-put-lifecycle.html
+# index config:  https://www.elastic.co/docs/api/doc/elasticsearch/operation/operation-indices-get-index-template
+
 $ErrorActionPreference = "Stop"
 
 $portForward = Start-Process -FilePath "kubectl" `

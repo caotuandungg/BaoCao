@@ -1,3 +1,4 @@
+# Github config file:   https://github.com/jertel/elastalert2/blob/master/examples/config.yaml.example
 apiVersion: v1
 kind: ConfigMap
 metadata:

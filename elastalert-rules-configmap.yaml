@@ -1,3 +1,8 @@
+# -----------------------------------------------------------------------------
+# BASED ON OFFICIAL ELASTALERT 2 RULE EXAMPLES (FREQUENCY RULE)
+# Official Rule Examples: https://github.com/jertel/elastalert2/tree/master/example_rules
+# Rule Type Documentation (Frequency): https://elastalert2.readthedocs.io/en/latest/ruletypes.html#frequency
+# -----------------------------------------------------------------------------
 apiVersion: v1
 kind: ConfigMap
 metadata:

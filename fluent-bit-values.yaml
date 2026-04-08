@@ -1,3 +1,4 @@
+# https://github.com/fluent/helm-charts/blob/main/charts/fluent-bit/values.yaml
 kind: DaemonSet
 hostNetwork: true
 dnsPolicy: ClusterFirstWithHostNet
