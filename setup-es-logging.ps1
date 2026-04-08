@@ -66,7 +66,7 @@ $files = @{
   "template": {
     "settings": {
       "number_of_shards": 1,
-      "number_of_replicas": 0,
+      "number_of_replicas": 1,
       "index.lifecycle.name": "logs-lab-policy",
       "index.lifecycle.rollover_alias": "dung-fe-write"
     },
@@ -103,7 +103,7 @@ $files = @{
   "template": {
     "settings": {
       "number_of_shards": 1,
-      "number_of_replicas": 0,
+      "number_of_replicas": 1,
       "index.lifecycle.name": "logs-lab-policy",
       "index.lifecycle.rollover_alias": "dung-be-write"
     },
@@ -140,7 +140,7 @@ $files = @{
   "template": {
     "settings": {
       "number_of_shards": 1,
-      "number_of_replicas": 0,
+      "number_of_replicas": 1,
       "index.lifecycle.name": "logs-lab-policy",
       "index.lifecycle.rollover_alias": "dung-db-write"
     },
@@ -177,7 +177,7 @@ $files = @{
   "template": {
     "settings": {
       "number_of_shards": 1,
-      "number_of_replicas": 0,
+      "number_of_replicas": 1,
       "index.lifecycle.name": "logs-lab-policy",
       "index.lifecycle.rollover_alias": "dung-web-write"
     },

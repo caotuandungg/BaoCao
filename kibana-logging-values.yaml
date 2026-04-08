@@ -1,4 +1,6 @@
-# https://github.com/elastic/helm-charts/blob/main/kibana/values.yaml
+# Cấu hình Kibana Logging - High Availability (HA)
+# File này dùng để chạy lệnh: helm upgrade kibana-dung elastic/kibana -f kibana-logging-values.yaml --namespace elk
+
 elasticsearchHosts: "https://elasticsearch-master:9200"
 
 kibanaConfig:
@@ -8,4 +10,9 @@ kibanaConfig:
 service:
   port: 5601
 
-replicas: 1
+# Thiết lập HA: 3 bản sao rải đều trên 3 Node
+replicas: 3
+antiAffinity: "hard" 
+
+# Cấu hình Affinity chi tiết (Dữ liệu từ file patch cũ đã được gộp vào đây)
+# Helm sẽ tự động sinh ra cấu hình podAntiAffinity dựa trên tham số antiAffinity: "hard" ở trên.

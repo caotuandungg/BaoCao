@@ -9,7 +9,7 @@ metadata:
     purpose: log-testing
     component: be
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: dung-be-log-generator
@@ -22,6 +22,16 @@ spec:
         purpose: log-testing
         component: be
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - dung-be-log-generator
+            topologyKey: kubernetes.io/hostname
       containers:
       - name: be
         image: python:3.11-alpine
