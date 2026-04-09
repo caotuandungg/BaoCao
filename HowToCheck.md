@@ -46,7 +46,7 @@ Kết quả mong đợi:
   - `dung-web-log-generator`
 - cột `READY` là `1/1`
 
-### 2.3. Kiểm tra 4 pod
+### 2.3. Kiểm tra các pod sinh log (HA) và phân bổ Node
 
 ```powershell
 kubectl get pods -n dung-lab -o wide
@@ -54,9 +54,10 @@ kubectl get pods -n dung-lab -o wide
 
 Kết quả mong đợi:
 
-- có 4 pod
+- có 12 pod (vì mỗi dịch vụ fe, be, web, db đều đã tăng Replicas lên 3)
 - tất cả `Running`
 - không có pod `CrashLoopBackOff`
+- **Các pod cùng loại (như 3 pod FE) không được nằm chung trên 1 Node** (Kiểm tra cột `NODE` chạy rải đều trên `wk01`, `wk02`, `wk03` do đã cấu hình `podAntiAffinity`).
 
 ### 2.4. Kiểm tra log thực tế từng pod
 
@@ -555,7 +556,30 @@ Nếu ra kết quả đúng, thì parser và mapping đang hoạt động tốt.
 
 ---
 
-## 10. Checklist xác nhận theo yêu cầu
+## 10. Kiểm tra High Availability (HA) bổ sung
+
+Do hệ thống đã được cấu trúc nâng cao lên chuẩn HA, bạn cần nghiệm thu thêm các tiêu chí phân tán tải sau:
+
+### 10.1. Kiểm tra HA của Kibana UI
+Sử dụng lệnh theo dõi sự phân bổ của Kibana:
+```powershell
+kubectl get pods -n elk -l release=kibana-dung -o wide
+```
+Kết quả mong đợi:
+- Có 3 pod Kibana hiển thị `Running` và `1/1 READY`.
+- Nhìn vào cột `NODE`, các pod phải chạy rải rác trên 3 máy tính vật lý khác nhau (ví dụ: `wk01`, `wk02`, `wk03`).
+
+### 10.2. Kiểm tra HA của dữ liệu Elasticsearch (Replicas Index)
+Thực hiện truy vấn qua curl để xem số lượng bản sao dự phòng của log:
+```powershell
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/indices/dung-*?v"
+```
+Kết quả mong đợi:
+- Nhìn vào cột **`rep`** (replicas). Chỉ số này phải hiển thị là `1` thay vì `0`. Điều này chứng tỏ dữ liệu của từng file log đã được sao lưu dự phòng sang máy vật lý thứ 2 bên trong kho Elasticsearch.
+
+---
+
+## 11. Checklist xác nhận theo yêu cầu
 
 ### Yêu cầu 1: Có hệ thống K8s sinh log FE/BE/DB/WEB
 
@@ -628,7 +652,7 @@ Check:
 
 ---
 
-## 11. Bộ lệnh ngắn gọn để kiểm tra nhanh
+## 12. Bộ lệnh ngắn gọn để kiểm tra nhanh
 
 ```powershell
 kubectl get pods -n dung-lab
@@ -643,7 +667,7 @@ kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "http
 
 ---
 
-## 12. Kết luận
+## 13. Kết luận
 
 Nếu bạn làm hết các bước kiểm tra trong file này và thấy kết quả đúng như mong đợi, thì có thể kết luận rằng hệ thống logging hiện tại đã đáp ứng được các yêu cầu bạn đặt ra ở mức triển khai thực tế trên cụm.
 
