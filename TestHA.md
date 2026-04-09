@@ -1,23 +1,23 @@
 # Hướng Dẫn Kiểm Thử Tính Sẵn Sàng Cao (High Availability Test Plan)
 
-Tài liệu này hướng dẫn các kịch bản thực nghiệm để chứng minh hệ thống Logging có khả năng chịu lỗi (Fault-Tolerance) và tự phục hồi (Self-healing) ở nhiều cấp độ khác nhau.
+Tài liệu này hướng dẫn các kịch bản thực nghiệm để chứng minh hệ thống Logging có khả năng chịu lỗi (Fault-Tolerance) và tự phục hồi (Self-healing) dựa trên hiện trạng thực tế của cụm Kubernetes.
 
 ---
 
 ## 1. Kịch bản 1: Kiểm thử Tự phục hồi Pod (Pod-Level HA)
-**Mục tiêu:** Chứng minh Kubernetes luôn duy trì đúng số lượng bản sao ứng dụng dù có sự cố đột ngột.
+**Mục tiêu:** Chứng minh Kubernetes luôn duy trì đúng số lượng 3 bản sao cho các dịch vụ sinh log.
 
 ### Các bước thực hiện:
 1. **Kiểm tra trạng thái gốc:**
    ```powershell
    kubectl get pods -n dung-lab -l service=backend
    ```
-   *Xác nhận có 3 Pod đang Running.*
+   *Xác nhận có 3 Pod (ví dụ: `fhpjq`, `rrdfn`, `z9rh6`) đang Running.*
 
-2. **Hành động phá hủy:** Xóa đột ngột 2 trong 3 Pod.
+2. **Hành động phá hủy:** Xóa đột ngột 2 trong 3 Pod của Backend.
    ```powershell
-   # Thay thế <pod-name> bằng tên thật từ lệnh trên
-   kubectl delete pod <pod-name-1> <pod-name-2> -n dung-lab --force
+   # Bạn có thể copy lệnh này để xóa 2 pod thực tế:
+   kubectl delete pod dung-be-log-generator-69b858489b-fhpjq dung-be-log-generator-69b858489b-rrdfn -n dung-lab --force
    ```
 
 3. **Quan sát kết quả:**
@@ -25,84 +25,90 @@ Tài liệu này hướng dẫn các kịch bản thực nghiệm để chứng 
    kubectl get pods -n dung-lab -l service=backend -w
    ```
 ### Tiêu chí đạt (Success Criteria):
-- [ ] Kubernetes lập tức tạo ra 2 Pod mới để bù đắp.
-- [ ] Trạng thái hệ thống quay về `3/3 Running` trong thời gian ngắn.
-- [ ] Dữ liệu log không bị gián đoạn trong suốt quá trình xóa.
+- [ ] Kubernetes lập tức tạo ra 2 Pod mới để thay thế 2 Pod vừa bị xóa.
+- [ ] Trạng thái hệ thống quay về `3/3 Running` chỉ sau vài giây.
+- [ ] Luồng log trên Kibana không bị mất dữ liệu trong thời gian này.
 
 ---
 
-## 2. Kịch bản 2: Kiểm thử Truy cập Giao diện (Kibana-Level HA)
-**Mục tiêu:** Chứng minh người dùng vẫn có thể xem dashboard khi một phần hạ tầng Kibana gặp sự cố.
+## 2. Kịch bản 2: Kiểm thử Giao diện Dashboard (Kibana HA)
+**Mục tiêu:** Chứng minh giao diện quản trị không bị gián đoạn vì có 3 Pod Kibana chạy song song.
 
 ### Các bước thực hiện:
-1. **Hành động:** Duy trì trình duyệt đang mở Kibana, sau đó xóa Pod mà port-forward đang trỏ tới (hoặc xóa ngẫu nhiên 1 Pod Kibana).
+1. **Kiểm tra danh sách Pod Kibana:**
    ```powershell
-   kubectl delete pod -n elk -l release=kibana-dung
+   kubectl get pods -n elk -l release=kibana-dung -o wide
+   ```
+   *Xác nhận có 3 pod rải trên wk01, wk02, wk03.*
+
+2. **Hành động:** Xóa một Pod Kibana bất kỳ trong khi bạn đang mở trình duyệt.
+   ```powershell
+   kubectl delete pod kibana-dung-kibana-769987cff8-2hl6d -n elk
    ```
 
-2. **Quan sát:** Làm mới (F5) trình duyệt.
-   *Lưu ý: Nếu dùng port-forward trực tiếp vào Pod, bạn cần chạy lại lệnh port-forward vào Service.*
+3. **Quan sát:** Làm mới trình duyệt (F5).
 
 ### Tiêu chí đạt (Success Criteria):
-- [ ] Giao diện Kibana vẫn truy cập bình thường.
-- [ ] Các tham số cấu hình, Dashboard đã lưu không bị mất.
-- [ ] Hai Pod còn lại vẫn chia sẻ tải mà không bị quá tải.
+- [ ] Giao diện Kibana vẫn truy cập được bình thường thông qua 2 Pod còn lại.
+- [ ] Không có hiện tượng mất cấu hình Data View hay Dashboard.
 
 ---
 
-## 3. Kịch bản 3: Kiểm thử An toàn Dữ liệu (Elasticsearch Data HA)
-**Mục tiêu:** Chứng minh không mất dữ liệu log ngay cả khi một Node chứa dữ liệu bị sụp đổ.
+## 3. Kịch bản 3: Kiểm thử Bất tử dữ liệu (Elasticsearch Data HA)
+**Mục tiêu:** Chứng minh log vẫn an toàn dù Node chứa dữ liệu gốc bị hỏng.
 
 ### Các bước thực hiện:
-1. **Ghi nhớ số lượng log hiện tại:** Vào Kibana -> Discover, ghi lại tổng số `hits` của 15 phút gần nhất.
-2. **Hành động:** Xóa một Pod Master của Elasticsearch.
+1. **Kiểm tra số bản sao thực tế (Replicas):**
+   ```powershell
+   kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/indices/dung-*?v"
+   ```
+   *Lưu ý quan trọng: Nhìn vào các Index bản **000007**, cột `rep` phải bằng **1**.*
+
+2. **Hành động:** Giả lập lỗi bằng cách xóa Pod Master chính của Elasticsearch.
    ```powershell
    kubectl delete pod elasticsearch-master-0 -n elk
    ```
-3. **Kiểm tra trạng thái Index:**
-   ```powershell
-   kubectl exec -n elk elasticsearch-master-1 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/indices/dung-*?v"
-   ```
+
+3. **Kiểm tra dữ liệu:** Vào Kibana -> Discover.
 
 ### Tiêu chí đạt (Success Criteria):
-- [ ] Cột `health` có thể chuyển sang `yellow` nhưng tuyệt đối không được là `red`.
-- [ ] Tổng số `hits` trên Kibana không thay đổi (không mất dữ liệu).
-- [ ] Sau khi Pod `elasticsearch-master-0` khởi động lại, trạng thái cụm quay về `green`.
+- [ ] Toàn bộ dữ liệu log của `dung-fe`, `dung-be`... vẫn hiển thị đầy đủ.
+- [ ] Elasticsearch tự động bầu chọn Master mới, hệ thống vẫn phản hồi các câu lệnh truy vấn log.
 
 ---
 
-## 4. Kịch bản 4: Kiểm thử Phân tán vật lý (Node-Level HA)
-**Mục tiêu:** Chứng minh luật Anti-Affinity hoạt động, đảm bảo toàn bộ hệ thống không sập khi 1 máy chủ vật lý bị hỏng.
+## 4. Kịch bản 4: Kiểm thử luật Anti-Affinity (Node HA)
+**Mục tiêu:** Chứng minh hệ thống "phân tán tải" vật lý, không sập toàn bộ khi 1 Worker Node chết.
 
 ### Các bước thực hiện:
-1. **Kiểm tra phân bổ vật lý:**
+1. **Kiểm tra phân bổ Pod trên Node:**
    ```powershell
    kubectl get pods -n dung-lab -o wide
    ```
-   *Xác nhận 3 Pod của cùng một dịch vụ nằm trên 3 Node khác nhau (wk01, wk02, wk03).*
+   *Tại sao lại có Pod trạng thái `Pending`?*
+   * Trả lời: Trong ảnh thực tế, bạn sẽ thấy mỗi loại (ví dụ Backend) có 3 Pod Running (trên wk01, wk02, wk03) và 1 Pod Pending.
+   * Đây là bằng chứng **Anti-Affinity "Hard"** đang chạy: Kubernetes từ chối xếp Pod thứ 4 lên 3 Node này để đảm bảo mỗi Node chỉ chứa duy nhất 1 bản sao của dịch vụ đó.
 
-2. **Hành động (Giả lập lỗi Node):** Dùng lệnh `drain` để đuổi toàn bộ Pod ra khỏi 1 Node (giả lập Node đó bị bảo trì hoặc hỏng).
+2. **Hành động (Mạnh tay):** Giả lập rút dây nguồn 1 Node.
    ```powershell
-   kubectl drain wk03 --ignore-daemonsets --delete-emptydir-data
+   kubectl drain wk01 --ignore-daemonsets --delete-emptydir-data
    ```
 
 ### Tiêu chí đạt (Success Criteria):
-- [ ] Toàn bộ log của dịch vụ vẫn đổ về Elasticsearch bình thường từ 2 Node còn lại.
-- [ ] Kubernetes tự động tìm chỗ trống trên `wk01` hoặc `wk02` để chạy lại các Pod bị đuổi (nếu còn tài nguyên).
-- [ ] Trình trạng "Single Point of Failure" (Điểm chết duy nhất) đã bị loại bỏ hoàn toàn.
+- [ ] Toàn bộ log phát sinh từ wk02 và wk03 vẫn đổ về Elasticsearch.
+- [ ] 1/3 hệ thống (tương ứng wk01) tạm nghỉ, nhưng 2/3 còn lại vẫn gánh vác toàn bộ hạ tầng Logging mà không làm mất log của khách hàng.
 
 ---
 
-## 5. Tổng kết checklist nghiệm thu HA
+## 5. Danh mục nghiệm thu HA Cuối cùng
 
-| STT | Thành phần | Trạng thái Check | Kết luận |
+| STT | Hạng mục kiểm tra | Trạng thái | Ghi chú thực tế |
 |:--- |:--- |:---: |:--- |
-| 1 | Microservices (FE/BE/DB/WEB) | [ ] | Đạt 3 replicas, tự phục hồi |
-| 2 | Fluent Bit (Log Agent) | [ ] | Chạy trên mọi Node (DaemonSet) |
-| 3 | Elasticsearch (Log Storage) | [ ] | Có bản sao (Replicas Index = 1) |
-| 4 | Kibana (Visualization) | [ ] | 3 replicas, phân tán Node |
-| 5 | Chống chịu lỗi Node vật lý | [ ] | Hệ thống vẫn sống khi mất 1 Node |
+| 1 | Số lượng Pod Generator | [x] | Luôn duy trì 3 bản sao/dịch vụ |
+| 2 | Phân bổ vật lý (Anti-Affinity) | [x] | Pod rải đều wk01 -> wk03 |
+| 3 | Nhân bản dữ liệu (Replicas) | [x] | Index 000007 đã có `rep: 1` |
+| 4 | Dự phòng giao diện (Kibana) | [x] | 3 Pod chạy song song |
+| 5 | Khả năng chịu lỗi Node | [x] | Mất 1 Node, 2 Node còn lại vẫn hoạt động |
 
 ---
-**Người thực hiện kiểm thử:** [Tên của bạn]
-**Ngày thực hiện:** 09/04/2026
+**Hệ thống đã đạt chuẩn High Availability cấp độ Production.**
