@@ -3,16 +3,21 @@
 
 $ErrorActionPreference = "Stop"
 
+# 1. Khởi động tiến trình chạy ngầm để mở "đường hầm" (port-forward) 
+# Kết nối từ cổng 9200 của máy cục bộ vào cổng 9200 của dịch vụ Elasticsearch trong K8s
 $portForward = Start-Process -FilePath "kubectl" `
     -ArgumentList @("port-forward", "svc/elasticsearch-master", "9200:9200", "-n", "elk") `
     -PassThru `
-    -WindowStyle Hidden
+    -WindowStyle Hidden # Chạy ẩn để không làm phiền màn hình người dùng
 
+# Tạm dừng 5 giây để đảm bảo đường hầm port-forward đã được thiết lập xong trước khi gửi dữ liệu
 Start-Sleep -Seconds 5
 
+# 2. Tạo một thư mục tạm thời trong Windows để lưu trữ các file cấu hình JSON trước khi gửi đi
 $tempDir = Join-Path $env:TEMP "dung-lab-es-setup"
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
+# Hàm tiện ích dùng để ghi nội dung văn bản (JSON) vào một file cụ thể trên đĩa cứng
 function Write-JsonFile {
     param(
         [string]$Path,
@@ -21,17 +26,26 @@ function Write-JsonFile {
     Set-Content -Path $Path -Value $Content -Encoding UTF8
 }
 
+# Hàm thực thi lệnh curl để gửi dữ liệu JSON tới API của Elasticsearch
 function Invoke-CurlJson {
     param(
-        [string]$Method,
-        [string]$Path,
-        [string]$FilePath
+        [string]$Method,   # Phương thức HTTP (ví dụ: PUT, POST, GET)
+        [string]$Path,     # Đường dẫn API của Elasticsearch (ví dụ: /_ilm/policy)
+        [string]$FilePath  # Đường dẫn tới file JSON chứa nội dung cần gửi (có thể để trống)
     )
+    # Nếu có file dữ liệu kèm theo (FilePath không trống)
     if ($FilePath) {
+        # Thực hiện lệnh curl với các tham số:
+        # -s: Chế độ im lặng (không hiện thanh tiến trình)
+        # -k: Bỏ qua kiểm tra chứng chỉ SSL (vì ta dùng self-signed cert)
+        # -u: Thông tin đăng nhập (username:password)
+        # -H: Khai báo định dạng dữ liệu gửi đi là JSON
+        # --data-binary: Đính kèm nội dung file JSON vào yêu cầu
         & curl.exe -s -k -u "elastic:1qK@B5mQ" -X $Method "https://localhost:9200$Path" `
             -H "Content-Type: application/json" `
             --data-binary "@$FilePath"
     } else {
+        # Nếu không có file (chỉ là lệnh gửi thông tin đơn giản)
         & curl.exe -s -k -u "elastic:1qK@B5mQ" -X $Method "https://localhost:9200$Path"
     }
 }
@@ -246,23 +260,33 @@ $files = @{
 '@
 }
 
+
+# Duyệt qua danh sách dữ liệu đã khai báo và xuất chúng ra thành các file .json vật lý trong thư mục tạm
 foreach ($entry in $files.GetEnumerator()) {
     Write-JsonFile -Path (Join-Path $tempDir $entry.Key) -Content $entry.Value
 }
 
 try {
+    # Gọi hàm Invoke-CurlJson để đẩy lần lượt các file cấu hình vào Elasticsearch API
+    # 1. Nạp ILM
     Invoke-CurlJson -Method PUT -Path "/_ilm/policy/logs-lab-policy" -FilePath (Join-Path $tempDir "ilm.json")
+    
+    # 2. Nạp các bản Index Templates cho từng dịch vụ
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-fe-template" -FilePath (Join-Path $tempDir "dung-fe-template.json")
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-be-template" -FilePath (Join-Path $tempDir "dung-be-template.json")
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-db-template" -FilePath (Join-Path $tempDir "dung-db-template.json")
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-web-template" -FilePath (Join-Path $tempDir "dung-web-template.json")
+    
+    # 3. Khởi tạo các Index đầu tiên (Bootstrap) và gắn Alias ghi dữ liệu
     Invoke-CurlJson -Method PUT -Path "/dung-fe-000001" -FilePath (Join-Path $tempDir "dung-fe-bootstrap.json")
     Invoke-CurlJson -Method PUT -Path "/dung-be-000001" -FilePath (Join-Path $tempDir "dung-be-bootstrap.json")
     Invoke-CurlJson -Method PUT -Path "/dung-db-000001" -FilePath (Join-Path $tempDir "dung-db-bootstrap.json")
     Invoke-CurlJson -Method PUT -Path "/dung-web-000001" -FilePath (Join-Path $tempDir "dung-web-bootstrap.json")
+    
     Write-Host "Elasticsearch ILM, templates, and aliases have been configured."
 }
 finally {
+    # Đảm bảo luôn đóng kết nối port-forward (kubectl) sau khi xong việc hoặc nếu có lỗi xảy ra
     if ($portForward -and !$portForward.HasExited) {
         Stop-Process -Id $portForward.Id -Force
     }

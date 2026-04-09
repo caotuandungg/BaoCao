@@ -9,6 +9,7 @@ data:
     es_host: elasticsearch-master.elk.svc.cluster.local
     es_port: 9200
     use_ssl: true
+    # verify_certs: false cho phép kết nối ngay cả khi Elasticsearch dùng chứng chỉ tự ký (Self-signed)
     verify_certs: false
     es_username: elastic
     es_password: "1qK@B5mQ"
