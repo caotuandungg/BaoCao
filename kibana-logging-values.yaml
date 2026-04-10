@@ -14,5 +14,3 @@ service:
 replicas: 3
 antiAffinity: "hard" 
 
-# Cấu hình Affinity chi tiết (Dữ liệu từ file patch cũ đã được gộp vào đây)
-# Helm sẽ tự động sinh ra cấu hình podAntiAffinity dựa trên tham số antiAffinity: "hard" ở trên.

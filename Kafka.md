@@ -50,32 +50,42 @@ Triển khai nguyên một cụm Kafka trong K8s. Đây đang là xu hướng ki
   - Khó triển khai với người chưa rành Kubernetes.
   - Phải quản lý cực kỳ cẩn thận ổ cứng ảo (Persistent Volumes, Storage Class) vì Kafka là hệ thống dạng Stateful.
 
-#### **Quy trình triển khai chi tiết (Dùng Helm & Operator):**
-1. **Cài đặt Operator:** Trước tiên, ta cần cài đặt "Bộ não" quản trị vào Cluster.
+#### **Quy trình triển khai chi tiết: Kafka & Logstash Pipeline**
+
+Dưới đây là tập hợp toàn bộ câu lệnh thi hành tuần tự để đưa luồng dự phòng dữ liệu (Kafka -> Logstash -> ES) vào hoạt động thực tế.
+
+**Giai đoạn 1: Triển khai Hạ tầng Kafka (Strimzi Operator)**
+1. **Cài đặt Operator (Bộ điều khiển trung tâm):**
    ```powershell
-   # Thêm Repo Strimzi
+   # Thêm Repo từ hãng Strimzi
    helm repo add strimzi https://strimzi.io/charts/
-   # Cài đặt Operator vào namespace 'kafka'
-   helm install strimzi-operator strimzi/strimzi-kafka-operator --namespace kafka --create-namespace
+   # Cập nhật danh sách repo nội bộ
+   helm repo update
+   # Triển khai Operator (Phiên bản siêu an toàn: Tái sử dụng luật Toàn Cụm có sẵn của công ty, chỉ tạo Robot ở local namespace)
+   helm install strimzi-operator-dung strimzi/strimzi-kafka-operator `
+     --namespace kafka-dung `
+     --create-namespace `
+     --set createGlobalResources=false
    ```
-2. **Triển khai Cụm Kafka:** Dùng file YAML (như `Kafka_Official_K8s_Config.yaml`) để yêu cầu Operator tạo cụm.
+
+2. **Dựng Cụm Kafka (High Availability):**
+   Sử dụng file cấu hình tiêu chuẩn đã được tinh chỉnh.
    ```powershell
    kubectl apply -f Kafka_Official_K8s_Config.yaml -n kafka
    ```
-3. **Kiểm tra sức khỏe:** Đợi vài phút để Operator thực hiện việc cấp phát ổ cứng và khởi động các Pod.
+
+3. **Kiểm tra trạng thái:** Đợi cho đến khi toàn bộ 6 Pod (3 Zookeeper + 3 Kafka) chuyển sang trạng thái `Running`.
    ```powershell
-   # Kiểm tra trạng thái tài nguyên Kafka
-   kubectl get kafka -n kafka
-   # Theo dõi các Pod đang lên (3 Kafka + 3 Zookeeper)
    kubectl get pods -n kafka -w
    ```
 
-#### **Các bước sau cài đặt (Post-Installation):**
-Sau khi cụm Kafka đã Running, bạn cần thực hiện 2 bước quan trọng sau để có thể bắt đầu sử dụng:
+**Giai đoạn 2: Tạo Kênh Vận Chuyển (Topic)**
+Kafka cần được cấp phát Topic trước khi có thể nhận dữ liệu từ Fluent Bit.
 
-1. **Tạo Topic (Kênh dữ liệu):** Trong Kafka, dữ liệu được phân loại theo Topic. Với Strimzi, bạn tạo Topic bằng một file YAML:
-   ```yaml
-   # my-topic.yaml
+1. **Khởi tạo file khai báo Topic:**
+   ```powershell
+   # Lưu nội dung sau thành file my-topic.yaml
+   @"
    apiVersion: kafka.strimzi.io/v1beta2
    kind: KafkaTopic
    metadata:
@@ -85,12 +95,37 @@ Sau khi cụm Kafka đã Running, bạn cần thực hiện 2 bước quan trọ
    spec:
      partitions: 3
      replicas: 3
+   "@ | Out-File -Encoding UTF8 my-topic.yaml
    ```
-   *Lệnh: `kubectl apply -f my-topic.yaml -n kafka`*
 
-2. **Cấu hình ứng dụng Kết nối:**
-   * **Địa chỉ kết nối (Bootstrap Server):** `my-cluster-kafka-bootstrap.kafka.svc:9092`
-   * Bạn hỗ trợ các ứng dụng (như Fluent Bit) bằng cách điền địa chỉ trên vào phần cấu hình `Output`. Lúc này, luồng dữ liệu mới thực sự được đẩy vào Kafka.
+2. **Áp dụng việc tạo Topic:**
+   ```powershell
+   kubectl apply -f my-topic.yaml -n kafka-dung
+   ```
+
+**Giai đoạn 3: Triển khai Cầu nối Logstash**
+Logstash đóng vai trò Consumer, bơm dữ liệu từ Topic của Kafka sang hệ thống lưu trữ Elasticsearch.
+
+1. **Cài đặt Logstash qua Helm:**
+   Sử dụng file cấu hình đã được kết nối sẵn thông số cụm (`logstash-values.yaml`).
+   ```powershell
+   # Thêm Repo chính thức của hãng Elastic
+   helm repo add elastic https://helm.elastic.co
+   helm repo update
+   
+   # Triển khai Logstash dưới namespace chứa Elasticsearch (elk)
+   helm install logstash-dung elastic/logstash -f logstash-values.yaml --namespace elk
+   ```
+
+2. **Kiểm tra tiến trình Logstash:**
+   ```powershell
+   kubectl get pods -n elk -l app=logstash-dung-logstash -w
+   ```
+
+**Giai đoạn 4: Tuỳ chỉnh Mắt xích Đầu nguồn (Fluent Bit)**
+Mọi khâu chuẩn bị đã hoàn tất. Bước cuối cùng, điều hướng toàn bộ lực đẩy log từ ứng dụng quay về họng hút của Kafka thay vì xả thẳng vào Elasticsearch.
+
+*   Mở file cài đặt của Fluent Bit (`fluent-bit-values.yaml`), sửa cấu hình để xuất (Output) tới địa chỉ `my-cluster-kafka-bootstrap.kafka.svc:9092` thay cho Elasticsearch.
 
 ### Cấp độ 3: Dùng Kafka Dịch vụ (Managed/Cloud Kafka)
 Sử dụng Confluent Cloud, Amazon MSK (Managed Streaming for Apache Kafka) hoặc Aiven.

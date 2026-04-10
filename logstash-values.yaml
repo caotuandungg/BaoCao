@@ -1,0 +1,87 @@
+# logstash-values.yaml
+# File này dùng cho Helm Chart chính thức của Elastic: elastic/logstash
+# Tài liệu tham khảo của hãng:
+# - Kafka Input: https://www.elastic.co/guide/en/logstash/current/plugins-inputs-kafka.html
+# - ES Output: https://www.elastic.co/guide/en/logstash/current/plugins-outputs-elasticsearch.html
+# - Helm Chart: https://github.com/elastic/helm-charts/tree/main/logstash
+
+persistence:
+  enabled: true
+
+volumeClaimTemplate:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: "csi-cinder-sc-delete"
+  resources:
+    requests:
+      storage: 2Gi
+
+logstashPipeline:
+  logstash.conf: |
+    input {
+      kafka {
+        # Lấy log từ trạm trung gian Kafka
+        bootstrap_servers => "my-cluster-kafka-bootstrap.kafka-dung.svc:9092"
+        topics => ["dung-logs-topic"]
+        group_id => "logstash-consumer-group"
+        auto_offset_reset => "latest"
+        codec => json
+      }
+    }
+
+    filter {
+      # Không cần thiết lập phức tạp ở đây vì log gốc của bạn đã có dạng JSON.
+      # Fluent Bit đã bóc tách JSON và giữ nguyên thuộc tính 'service' (frontend, backend...)
+    }
+
+    output {
+      # Phân luồng (Routing) dựa trên trường "service" nằm trong body của Log JSON
+      # Bản chất 4 lệnh IF này hoàn toàn thay thế cho 5 khối Output cực nhọc bên Fluent Bit
+      
+      if [service] == "frontend" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1qK@B5mQ"
+          ssl_certificate_verification => false
+          index => "dung-fe-write"
+        }
+      }
+      else if [service] == "backend" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1qK@B5mQ"
+          ssl_certificate_verification => false
+          index => "dung-be-write"
+        }
+      }
+      else if [service] == "database" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1qK@B5mQ"
+          ssl_certificate_verification => false
+          index => "dung-db-write"
+        }
+      }
+      else if [service] == "webserver" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1qK@B5mQ"
+          ssl_certificate_verification => false
+          index => "dung-web-write"
+        }
+      }
+      # Các log K8s khác (không có thẻ service hoặc loại hệ thống)
+      else {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1qK@B5mQ"
+          ssl_certificate_verification => false
+          index => "dung-kube-khac-%{+YYYY.MM.dd}"
+        }
+      }
+    }
+

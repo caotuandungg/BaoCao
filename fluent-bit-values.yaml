@@ -1,4 +1,4 @@
-# https://github.com/fluent/helm-charts/blob/main/charts/fluent-bit/values.yaml
+# Github config file:  https://github.com/fluent/helm-charts/blob/main/charts/fluent-bit/values.yaml
 kind: DaemonSet
 hostNetwork: true
 dnsPolicy: ClusterFirstWithHostNet
@@ -61,89 +61,13 @@ config:
 
   outputs: |
     [OUTPUT]
-        Name                    es
-        Match                   logs.fe
-        Host                    elasticsearch-master.elk.svc.cluster.local
-        Port                    9200
-        HTTP_User               elastic
-        HTTP_Passwd             1qK@B5mQ
-        Index                   dung-fe-write
-        Suppress_Type_Name      On
-        Retry_Limit             5
-        Buffer_Size             False
-        storage.total_limit_size 500MB
-        net.keepalive           On
-        net.keepalive_idle_timeout 10
-        TLS                     On
-        TLS.Verify              Off
-
-    [OUTPUT]
-        Name                    es
-        Match                   logs.be
-        Host                    elasticsearch-master.elk.svc.cluster.local
-        Port                    9200
-        HTTP_User               elastic
-        HTTP_Passwd             1qK@B5mQ
-        Index                   dung-be-write
-        Suppress_Type_Name      On
-        Retry_Limit             5
-        Buffer_Size             False
-        storage.total_limit_size 500MB
-        net.keepalive           On
-        net.keepalive_idle_timeout 10
-        TLS                     On
-        TLS.Verify              Off
-
-    [OUTPUT]
-        Name                    es
-        Match                   logs.db
-        Host                    elasticsearch-master.elk.svc.cluster.local
-        Port                    9200
-        HTTP_User               elastic
-        HTTP_Passwd             1qK@B5mQ
-        Index                   dung-db-write
-        Suppress_Type_Name      On
-        Retry_Limit             5
-        Buffer_Size             False
-        storage.total_limit_size 500MB
-        net.keepalive           On
-        net.keepalive_idle_timeout 10
-        TLS                     On
-        TLS.Verify              Off
-
-    [OUTPUT]
-        Name                    es
-        Match                   logs.web
-        Host                    elasticsearch-master.elk.svc.cluster.local
-        Port                    9200
-        HTTP_User               elastic
-        HTTP_Passwd             1qK@B5mQ
-        Index                   dung-web-write
-        Suppress_Type_Name      On
-        Retry_Limit             5
-        Buffer_Size             False
-        storage.total_limit_size 500MB
-        net.keepalive           On
-        net.keepalive_idle_timeout 10
-        TLS                     On
-        TLS.Verify              Off
-
-    [OUTPUT]
-        Name               es
-        Match              kube.*
-        Host               elasticsearch-master.elk.svc.cluster.local
-        Port               9200
-        HTTP_User          elastic
-        HTTP_Passwd        1qK@B5mQ
-        Buffer_Size        False
-        Logstash_Format    On
-        Logstash_Prefix    fluent-bit
-        Retry_Limit        5
-        Trace_Error        On
-        Replace_Dots       On
-        TLS                On
-        TLS.Verify         Off
-        Suppress_Type_Name On
+        Name        kafka
+        Match       *
+        Brokers     my-cluster-kafka-bootstrap.kafka-dung.svc:9092
+        Topics      dung-logs-topic
+        Format      json
+        # Giảm disk Fluenbit từ 500MB xuống 50MB 
+        storage.total_limit_size 50MB
 
   customParsers: |
     [PARSER]

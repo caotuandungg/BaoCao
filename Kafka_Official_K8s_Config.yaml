@@ -1,14 +1,16 @@
-# Nguồn tài liệu chính thức: https://strimzi.io/docs/operators/latest/deploying.html
-# File gốc từ GitHub Strimzi: https://github.com/strimzi/strimzi-kafka-operator/blob/main/examples/kafka/kafka-persistent.yaml
+# Nguồn tài liệu chính thức cho KRaft + Node Pools: https://strimzi.io/docs/operators/latest/overview.html#architecture-kraft-str
+# Lưu ý: Ở Strimzi 0.46+, KafkaNodePool là một loại tài nguyên (Kind) tách biệt.
 
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: Kafka
 metadata:
   name: my-cluster
+  annotations:
+    # Kích hoạt tính năng Node Pools cho cụm này
+    strimzi.io/node-pools: "enabled"
 spec:
   kafka:
-    version: 3.7.0
-    replicas: 3
+    version: 4.1.0
     listeners:
       - name: plain
         port: 9092
@@ -24,20 +26,31 @@ spec:
       transaction.state.log.min.isr: 2
       default.replication.factor: 3
       min.insync.replicas: 2
-      inter.broker.protocol.version: "3.7"
-    storage:
-      type: jbod
-      volumes:
-      - id: 0
-        type: persistent-claim
-        size: 100Gi
-        deleteClaim: false
-  zookeeper:
-    replicas: 3
-    storage:
-      type: persistent-claim
-      size: 100Gi
-      deleteClaim: false
   entityOperator:
     topicOperator: {}
     userOperator: {}
+
+---
+# Khai báo Node Pool riêng biệt để thay thế cho Zookeeper (Chế độ KRaft)
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaNodePool
+metadata:
+  name: combined
+  labels:
+    # Liên kết Node Pool này với cụm Kafka "my-cluster" ở trên
+    strimzi.io/cluster: my-cluster
+spec:
+  replicas: 3
+  roles:
+    - controller
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: persistent-claim
+        size: 20Gi
+        class: csi-cinder-sc-delete
+        deleteClaim: false
+
+

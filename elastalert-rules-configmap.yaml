@@ -1,4 +1,4 @@
-# Github rule file:  https://github.com/jertel/elastalert2/blob/master/examples/rules/example_frequency.yaml
+# Github config file:  https://github.com/jertel/elastalert2/blob/master/examples/rules/example_frequency.yaml
 # Rule Type Doc:     https://elastalert2.readthedocs.io/en/latest/ruletypes.html#frequency
 apiVersion: v1
 kind: ConfigMap
