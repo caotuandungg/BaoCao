@@ -272,6 +272,8 @@ Kết quả mong đợi:
 ```powershell
 kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-fe-000001/_ilm/explain"
 kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-be-000001/_ilm/explain"
+
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_ilm/policy/logs-lab-policy?pretty"
 ```
 
 Kết quả mong đợi:
