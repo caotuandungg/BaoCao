@@ -61,11 +61,13 @@ config:
 
   outputs: |
     [OUTPUT]
-        Name        kafka
-        Match       *
-        Brokers     my-cluster-kafka-bootstrap.kafka-dung.svc:9092
-        Topics      dung-logs-topic
-        Format      json
+        Name           kafka
+        Match          kube.*
+        Brokers        my-cluster-kafka-bootstrap.kafka-dung.svc:9092
+        Topics         dung-logs-topic
+        Format         json
+        Timestamp_Key  @timestamp
+        Timestamp_Format iso8601
         # Giảm disk Fluenbit từ 500MB xuống 50MB 
         storage.total_limit_size 50MB
 

@@ -22,7 +22,7 @@ logstashPipeline:
         # Lấy log từ trạm trung gian Kafka
         bootstrap_servers => "my-cluster-kafka-bootstrap.kafka-dung.svc:9092"
         topics => ["dung-logs-topic"]
-        group_id => "logstash-consumer-group"
+        group_id => "logstash-consumer-group-2"
         auto_offset_reset => "latest"
         codec => json
       }
@@ -31,6 +31,11 @@ logstashPipeline:
     filter {
       # Không cần thiết lập phức tạp ở đây vì log gốc của bạn đã có dạng JSON.
       # Fluent Bit đã bóc tách JSON và giữ nguyên thuộc tính 'service' (frontend, backend...)
+      
+      # Ngắt vòng lặp vô hạn (Infinite Loop) do Logstash tự ăn chính Log lỗi của nó
+      if "logstash" in [kubernetes][pod_name] {
+        drop {}
+      }
     }
 
     output {
