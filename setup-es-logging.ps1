@@ -65,7 +65,7 @@ $files = @{
         }
       },
       "delete": {
-        "min_age": "7d",
+        "min_age": "2d",
         "actions": {
           "delete": {}
         }

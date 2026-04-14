@@ -7,3 +7,6 @@ metadata:
 spec:
   partitions: 3
   replicas: 3
+  config:
+    retention.ms: 7200000       # Chỉ giữ lại log trong vòng 2 tiếng (vượt 2 tiếng tự xóa dọn rác)
+    retention.bytes: 2147483648 # Phanh khẩn cấp: Chỉ cho phép dung lượng chứa túi đa 2GB mỗi partition

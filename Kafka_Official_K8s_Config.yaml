@@ -26,6 +26,9 @@ spec:
       transaction.state.log.min.isr: 2
       default.replication.factor: 3
       min.insync.replicas: 2
+      # Thêm cấu hình tự dọn dẹp ổ cứng
+      log.retention.bytes: 5368709120  # Giới hạn 5GB mỗi broker
+      log.retention.check.interval.ms: 300000 # 5 phút kiểm tra xóa 1 lần
   entityOperator:
     topicOperator: {}
     userOperator: {}
