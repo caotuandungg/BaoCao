@@ -36,6 +36,10 @@ logstashPipeline:
       if "logstash" in [kubernetes][pod_name] {
         drop {}
       }
+
+      mutate {
+        remove_field => ["[kubernetes][labels]"]
+      }
     }
 
     output {
@@ -89,4 +93,5 @@ logstashPipeline:
         }
       }
     }
+
 
