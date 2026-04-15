@@ -94,7 +94,7 @@ Nếu bước này đúng, tức là yêu cầu số 1 đã đạt ở mức ngu
 
 ---
 
-## 3. Kiểm tra Fluent Bit đã đọc log từ `dung-lab`
+## 3. Kiểm tra Fluent Bit đã đọc log toàn cluster (ưu tiên `dung-lab`)
 
 ### 3.1. Kiểm tra pod Fluent Bit
 
@@ -151,11 +151,8 @@ Tìm các điểm sau trong `fluent-bit.conf`:
 - parser `json_log`
 - `storage.path /var/fluent-bit/state`
 - `storage.type filesystem`
-- output tới:
-  - `dung-fe-write`
-  - `dung-be-write`
-  - `dung-db-write`
-  - `dung-web-write`
+- `Path /var/log/containers/*.log` (đọc toàn cluster)
+- output `kafka` tới topic `dung-logs-topic`
 
 Nếu có đủ các mục trên, tức là yêu cầu số 3, 4, 5 đã được cấu hình đúng ở phía Fluent Bit.
 
@@ -664,7 +661,8 @@ kubectl get pods -n elk -l app.kubernetes.io/name=fluent-bit
 kubectl logs -n elk deployment/elastalert2 --tail=50
 kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/indices/dung-*?v"
 kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/aliases/dung-*?v"
-kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-be-000001/_ilm/explain"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_ilm/policy/logs-lab-policy?pretty"
+
 ```
 
 ---
@@ -681,3 +679,116 @@ Nếu bạn làm hết các bước kiểm tra trong file này và thấy kết 
 - mapping là tĩnh
 - Fluent Bit có filesystem buffer
 - ElastAlert đã bắn cảnh báo thật
+
+---
+
+## 14. Kiểm tra luồng Fluent Bit -> Kafka -> Logstash -> Elasticsearch (E2E)
+
+Mục tiêu của mục này là xác nhận 4 tầng trong pipeline đang hoạt động trơn tru:
+
+1. Fluent Bit đọc log từ `dung-lab` và đẩy vào Kafka.
+2. Kafka nhận được message có trường `service`.
+3. Logstash consume topic và route theo `service`.
+4. Elasticsearch nhận document mới trong 15 phút gần nhất.
+
+Nên chạy theo đúng thứ tự bên dưới.
+
+### 14.1. Tầng Fluent Bit
+
+```powershell
+# Kiểm tra pod Fluent Bit trên các node
+kubectl get pods -n elk -l app.kubernetes.io/name=fluent-bit -o wide
+
+# Kiểm tra rollout DaemonSet
+kubectl rollout status daemonset/fluent-bit -n elk
+
+# Kiểm tra config thực tế đang chạy (không chỉ file local)
+kubectl get configmap fluent-bit -n elk -o jsonpath='{.data.fluent-bit\.conf}'
+
+# Kiểm tra log 5 phút gần nhất của Fluent Bit
+kubectl logs -n elk -l app.kubernetes.io/name=fluent-bit --since=5m --tail=120
+```
+
+Chú thích nhanh:
+- `READY` phải là `1/1`, `STATUS` là `Running`.
+- Trong config phải thấy:
+  - `Path /var/log/containers/*.log`
+  - `Key_Name     log`
+  - output `kafka` tới topic `dung-logs-topic`.
+- Nếu log có lỗi parser/output liên tục thì tầng Fluent Bit chưa ổn.
+
+### 14.2. Tầng Kafka
+
+```powershell
+# Đọc nhanh 20 message để xem dữ liệu có vào topic không
+kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic dung-logs-topic --max-messages 20 --timeout-ms 10000
+
+# Lọc riêng message frontend (có thể đổi frontend -> backend/database/webserver)
+kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic dung-logs-topic --max-messages 300 --timeout-ms 15000 | Select-String -Pattern '"service"\s*:\s*"frontend"'
+```
+
+Chú thích nhanh:
+- Trong message nên thấy JSON app nằm trong field `message` và có `"service": "frontend|backend|database|webserver"`.
+- Nếu đọc được message nhưng không thấy `service`, khả năng parse/routing ở tầng sau sẽ sai.
+
+### 14.3. Tầng Logstash
+
+```powershell
+# Pod Logstash
+kubectl get pods -n elk | findstr /I logstash
+
+# Log runtime 10 phút gần nhất
+kubectl logs -n elk logstash-dung-logstash-0 --since=10m
+
+# Lọc nhanh lỗi kết nối ES
+kubectl logs -n elk logstash-dung-logstash-0 --since=10m | findstr /I "ERROR Elasticsearch Unreachable"
+
+# Kiểm tra consumer lag group Logstash
+kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group logstash-consumer-group-2
+```
+
+Chú thích nhanh:
+- Pod Logstash phải `Running`, restart thấp.
+- Không nên còn chuỗi `Elasticsearch Unreachable`.
+- `LAG` lý tưởng là `0`; giá trị nhỏ (vài unit đến vài chục) vẫn chấp nhận được khi dòng log đang chạy mạnh.
+
+### 14.4. Tầng Elasticsearch (xác nhận ingest)
+
+```powershell
+# Count trong 15 phút gần nhất cho từng nhóm index
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-fe-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-be-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-db-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-web-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
+
+# Lấy document mới nhất để đối chiếu @timestamp
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-fe-*/_search?size=1&sort=@timestamp:desc&pretty"
+
+# Fallback chẩn đoán khi dung-* không có log mới:
+# 1) Kiểm tra nhánh cluster-khac có đang nhận log service không
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/cluster-khac-*/_count?q=service:frontend%20AND%20@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
+
+# 2) Kiểm tra document mới nhất của cluster-khac
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/cluster-khac-*/_search?size=1&sort=@timestamp:desc&pretty"
+```
+
+Chú thích nhanh:
+- `count > 0` trong `now-15m` là dấu hiệu ingest đang realtime.
+- `@timestamp` của document mới nhất phải tiệm cận thời gian hiện tại.
+- Nếu `count = 0` nhưng `_search sort=@timestamp:desc` vẫn có dữ liệu mới hơn, cần kiểm tra lại múi giờ/time range trên Kibana.
+- Nếu Kafka `LAG` đang cao (hàng chục nghìn), có thể tạm kiểm tra `now-30m` hoặc `now-60m` thay cho `now-15m` trong lúc Logstash đang catch-up.
+- Nếu `cluster-khac-*` vẫn tăng đều nhưng `dung-fe|be|db|web-*` đứng yên, khả năng cao đang lệch điều kiện route theo namespace/service ở Logstash.
+
+### 14.5. Checklist kết luận nhanh
+
+Đạt `PASS` cho luồng E2E nếu thỏa cả 4 điều kiện:
+
+1. Fluent Bit pod `Running` và config output Kafka đúng topic.
+2. Kafka đọc được message có trường `service`.
+3. Logstash consumer group có `LAG` thấp và không có lỗi kết nối ES.
+4. ES `dung-fe|be|db|web-*` có `count > 0` trong 15 phút gần nhất.
+
+Nếu fail:
+- Fail ở 1 hoặc 2: khoanh vùng Fluent Bit/Kafka.
+- Fail ở 3: khoanh vùng Logstash.
+- Fail ở 4: khoanh vùng route/output sang Elasticsearch.

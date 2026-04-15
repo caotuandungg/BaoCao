@@ -110,3 +110,132 @@ kubectl delete rolebinding pre-install-kibana-dung-kibana -n elk --ignore-not-fo
 **1. Biểu hiện:** Đã mở Port-forward sang 5602 (bản Kibana Log). Gõ mật khẩu `elastic` cực chuẩn nhưng vẫn bị báo login sai dữ liệu liên tục.
 **2. Nguyên nhân:** Mâu thuẫn danh tính cookie! Trên cùng một tên miền định tuyến `localhost`, trình duyệt âm thầm ưu tiên dùng cục Cookie được cấp từ instance Kibana cũ ở Port 5601. Dữ liệu đâm sang nhau sinh ra sai lệch giải mã mã hóa token.
 **3. Cách khắc phục:** Rất đơn giản, mở kết nối ứng dụng Port 5602 trên một **Cửa Sổ Trình Duyệt Ẩn Danh (Incognito/Private Tab)** rỗng Cookie để gõ lại Pass.
+
+---
+
+## III. Su co Logstash (vua gap thuc te) va cach xu ly
+
+### Loi 3.1: `kubectl logs -l app=logstash` bao `No resources found in elk namespace`
+**1. Bieu hien:**
+- Chay lenh:
+```powershell
+kubectl logs -n elk -l app=logstash --tail=200
+```
+- Tra ve: `No resources found in elk namespace.`
+
+**2. Nguyen nhan goc re:**
+- Pod Logstash co ton tai, nhung label selector `app=logstash` khong khop label thuc te cua chart Helm.
+
+**3. Huong xu ly:**
+```powershell
+# Tim Pod Logstash chac chan theo ten
+kubectl get pods -A | findstr /I logstash
+
+# Xem label thuc te
+kubectl get pods -n elk --show-labels | findstr /I logstash
+
+# Xem log theo ten pod (an toan nhat)
+kubectl logs -n elk logstash-dung-logstash-0 --tail=200
+kubectl logs -n elk logstash-dung-logstash-0 --since=10m
+```
+
+### Loi 3.2: `docs.count` khong tang (nghi log khong di vao Elasticsearch)
+**1. Bieu hien:**
+- Chay `_cat/indices/dung-*` nhieu lan nhung `docs.count` gan nhu khong doi.
+
+**2. Nguyen nhan goc re:**
+- `docs.count` tong co the tang cham hoac kho quan sat trong khoang thoi gian ngan.
+- Can kiem tra theo `@timestamp` document moi nhat de biet pipeline co di hay khong.
+
+**3. Huong xu ly (khoanh vung theo tung tang):**
+```powershell
+# A) Nguon sinh log
+kubectl get pods -n dung-lab
+kubectl logs -n dung-lab -l app=dung-fe-log-generator --tail=5
+kubectl logs -n dung-lab -l app=dung-be-log-generator --tail=5
+
+# B) Fluent Bit -> Kafka
+kubectl logs -n elk -l app.kubernetes.io/name=fluent-bit --since=5m
+
+# C) Kafka consumer group cua Logstash
+kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group logstash-consumer-group-2
+
+# D) Kiem tra document moi nhat theo timestamp
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-fe-*/_search?size=1&sort=@timestamp:desc"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-be-*/_search?size=1&sort=@timestamp:desc"
+```
+
+### Loi 3.3: Logstash ban loi `Elasticsearch Unreachable [http://elasticsearch:9200/]`
+**1. Bieu hien:**
+- Log co chuoi:
+  - `Elasticsearch Unreachable [http://elasticsearch:9200/]`
+  - `Name or service not known`
+  - `logstash.licensechecker.licensereader`
+
+**2. Nguyen nhan goc re:**
+- `pipeline/logstash.conf` da dung host ES.
+- Nhung `config/logstash.yml` van de monitoring host sai:
+  - `xpack.monitoring.elasticsearch.hosts: ["http://elasticsearch:9200"]`
+- DNS `elasticsearch` khong ton tai trong namespace nen monitoring checker loi lien tuc.
+
+**3. Cau lenh phat hien:**
+```powershell
+kubectl exec -n elk logstash-dung-logstash-0 -- cat /usr/share/logstash/pipeline/logstash.conf
+kubectl exec -n elk logstash-dung-logstash-0 -- cat /usr/share/logstash/config/logstash.yml
+kubectl logs -n elk logstash-dung-logstash-0 --since=5m
+```
+
+**4. Huong xu ly:**
+- Cap nhat `logstash-values.yaml` de ghi de `logstash.yml`:
+```yaml
+logstashConfig:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+    xpack.monitoring.enabled: false
+```
+- Apply lai Helm release:
+```powershell
+helm upgrade --install logstash-dung elastic/logstash -n elk -f logstash-values.yaml
+kubectl rollout status statefulset/logstash-dung-logstash -n elk
+```
+
+**5. Xac nhan da khac phuc:**
+```powershell
+# Khong con loi elasticsearch:9200
+kubectl logs -n elk logstash-dung-logstash-0 --since=5m | findstr /I "Elasticsearch Unreachable elasticsearch:9200"
+
+# Co document moi theo timestamp
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-fe-*/_search?size=1&sort=@timestamp:desc"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-be-*/_search?size=1&sort=@timestamp:desc"
+```
+
+### Loi 3.4: Popup Windows `ms-screenclip://?source=HotKey`
+**1. Bieu hien:**
+- Trong luc thao tac terminal xuat hien popup:
+  - `This file does not have an app associated with it...`
+  - URI: `ms-screenclip://?source=HotKey`
+
+**2. Nguyen nhan goc re:**
+- Loi association cua he dieu hanh Windows (Snipping Tool / Screen Clip), **khong lien quan** Kubernetes, Logstash, Kafka hay Elasticsearch.
+
+**3. Huong xu ly:**
+- Co the bo qua khi debug ha tang log.
+- Neu can sua tren may tram: cai/repair Snipping Tool va gan lai default app cho giao thuc `ms-screenclip`.
+
+---
+
+## IV. Chuan kiem tra nhanh pipeline Logstash sau moi lan chinh cau hinh
+```powershell
+# 1) Pod Logstash
+kubectl get pods -n elk | findstr /I logstash
+
+# 2) Log runtime 5 phut gan nhat
+kubectl logs -n elk logstash-dung-logstash-0 --since=5m
+
+# 3) Kafka lag consumer group
+kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group logstash-consumer-group-2
+
+# 4) ES doc moi nhat
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-fe-*/_search?size=1&sort=@timestamp:desc"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-be-*/_search?size=1&sort=@timestamp:desc"
+```

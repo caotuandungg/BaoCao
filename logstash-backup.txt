@@ -1,0 +1,100 @@
+# logstash-values.yaml
+# Helm chart: elastic/logstash
+
+persistence:
+  enabled: true
+
+volumeClaimTemplate:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: "csi-cinder-sc-delete"
+  resources:
+    requests:
+      storage: 2Gi
+
+logstashConfig:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+    xpack.monitoring.enabled: false
+
+logstashPipeline:
+  logstash.conf: |
+    input {
+      kafka {
+        bootstrap_servers => "my-cluster-kafka-bootstrap.kafka-dung.svc:9092"
+        topics => ["dung-logs-topic"]
+        group_id => "logstash-consumer-group-2"
+        auto_offset_reset => "latest"
+        codec => json
+      }
+    }
+
+    filter {
+      # Fallback parse in case app JSON stays inside log/message fields.
+      if ![service] and [log] =~ "^{.*}$" {
+        json {
+          source => "log"
+        }
+      }
+
+      if ![service] and [message] =~ "^{.*}$" {
+        json {
+          source => "message"
+        }
+      }
+
+      if "logstash" in [kubernetes][pod_name] {
+        drop {}
+      }
+
+      mutate {
+        remove_field => ["[kubernetes][labels]"]
+      }
+    }
+
+    output {
+      if [service] == "frontend" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1qK@B5mQ"
+          ssl_certificate_verification => false
+          index => "dung-fe-write"
+        }
+      }
+      else if [service] == "backend" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1qK@B5mQ"
+          ssl_certificate_verification => false
+          index => "dung-be-write"
+        }
+      }
+      else if [service] == "database" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1qK@B5mQ"
+          ssl_certificate_verification => false
+          index => "dung-db-write"
+        }
+      }
+      else if [service] == "webserver" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1qK@B5mQ"
+          ssl_certificate_verification => false
+          index => "dung-web-write"
+        }
+      }
+      else {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1qK@B5mQ"
+          ssl_certificate_verification => false
+          index => "dung-kube-khac-%{+YYYY.MM.dd}"
+        }
+      }
+    }

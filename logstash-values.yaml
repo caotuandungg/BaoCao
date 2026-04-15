@@ -1,9 +1,9 @@
+﻿replicas: 3
+antiAffinity: "hard"
+antiAffinityTopologyKey: "kubernetes.io/hostname"
+
 # logstash-values.yaml
-# File này dùng cho Helm Chart chính thức của Elastic: elastic/logstash
-# Tài liệu tham khảo của hãng:
-# - Kafka Input: https://www.elastic.co/guide/en/logstash/current/plugins-inputs-kafka.html
-# - ES Output: https://www.elastic.co/guide/en/logstash/current/plugins-outputs-elasticsearch.html
-# - Helm Chart: https://github.com/elastic/helm-charts/tree/main/logstash
+# Helm chart: elastic/logstash
 
 persistence:
   enabled: true
@@ -15,11 +15,15 @@ volumeClaimTemplate:
     requests:
       storage: 2Gi
 
+logstashConfig:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+    xpack.monitoring.enabled: false
+
 logstashPipeline:
   logstash.conf: |
     input {
       kafka {
-        # Lấy log từ trạm trung gian Kafka
         bootstrap_servers => "my-cluster-kafka-bootstrap.kafka-dung.svc:9092"
         topics => ["dung-logs-topic"]
         group_id => "logstash-consumer-group-2"
@@ -29,12 +33,66 @@ logstashPipeline:
     }
 
     filter {
-      # Không cần thiết lập phức tạp ở đây vì log gốc của bạn đã có dạng JSON.
-      # Fluent Bit đã bóc tách JSON và giữ nguyên thuộc tính 'service' (frontend, backend...)
-      
-      # Ngắt vòng lặp vô hạn (Infinite Loop) do Logstash tự ăn chính Log lỗi của nó
-      if "logstash" in [kubernetes][pod_name] {
+      # Fallback parse in case app JSON stays inside log/message fields.
+      if ![service] and [log] =~ "^{.*}$" {
+        json {
+          source => "log"
+        }
+      }
+
+      if ![service] and [message] =~ "^{.*}$" {
+        json {
+          source => "message"
+        }
+      }
+
+      # Prevent Logstash self-ingest loop.
+      if [kubernetes][pod_name] =~ /^logstash/ or [kubernetes][container_name] == "logstash" or [message] =~ /\[logstash\.outputs\.elasticsearch\]/ {
         drop {}
+      }
+
+      # Normalize object-type event field to avoid mapping conflict (event=text in some templates).
+      ruby {
+        code => '
+          e = event.get("event")
+          if e.is_a?(Hash)
+            event.set("event_original", e["original"] || e.to_s)
+            event.remove("event")
+          end
+        '
+      }
+
+      # Normalize service field to string to avoid conflict when logs use ECS object service.name.
+      ruby {
+        code => '
+          s = event.get("service")
+          if s.is_a?(Hash)
+            name = s["name"] || s["id"] || s.to_s
+            event.set("service", name)
+            event.set("service_name", name)
+          elsif s.nil?
+            sn = event.get("service.name")
+            if sn
+              event.set("service", sn)
+              event.set("service_name", sn)
+            end
+          end
+
+          # Normalize dotted ECS field service.name if present as literal key.
+          sdot = event.get("service.name")
+          if sdot
+            event.set("service", sdot) if event.get("service").nil?
+            event.set("service_name", sdot)
+            event.remove("service.name")
+          end
+
+          # Normalize dotted ECS field event.dataset to avoid conflict with app field event (string).
+          edot = event.get("event.dataset")
+          if edot
+            event.set("event_dataset", edot)
+            event.remove("event.dataset")
+          end
+        '
       }
 
       mutate {
@@ -43,9 +101,7 @@ logstashPipeline:
     }
 
     output {
-      # Phân luồng (Routing) dựa trên trường "service" nằm trong body của Log JSON
-      # Bản chất 4 lệnh IF này hoàn toàn thay thế cho 5 khối Output cực nhọc bên Fluent Bit
-      
+      # Application logs: route by service first (independent from namespace).
       if [service] == "frontend" {
         elasticsearch {
           hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
@@ -82,16 +138,34 @@ logstashPipeline:
           index => "dung-web-write"
         }
       }
-      # Các log K8s khác (không có thẻ service hoặc loại hệ thống)
+      # dung-lab records without known service
+      else if [kubernetes][namespace_name] == "dung-lab" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1qK@B5mQ"
+          ssl_certificate_verification => false
+          index => "dung-lab-khac-%{+YYYY.MM.dd}"
+        }
+      }
+      # Platform/system namespaces
+      else if [kubernetes][namespace_name] =~ /^(kube-system|monitoring|ingress-nginx)$/ {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1qK@B5mQ"
+          ssl_certificate_verification => false
+          index => "platform-k8s-%{+YYYY.MM.dd}"
+        }
+      }
+      # Remaining cluster namespaces
       else {
         elasticsearch {
           hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
           user => "elastic"
           password => "1qK@B5mQ"
           ssl_certificate_verification => false
-          index => "dung-kube-khac-%{+YYYY.MM.dd}"
+          index => "cluster-khac-%{+YYYY.MM.dd}"
         }
       }
     }
-
-
