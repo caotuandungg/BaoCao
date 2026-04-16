@@ -677,11 +677,9 @@ Nếu bạn muốn kiểm tra nhanh "Sức khỏe" của toàn bộ Pipeline, h�
 
 1. **Kafka Health**: `kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic dung-logs-topic` (Đảm bảo ISR đủ 3).
 
-![Ki?m tra metadata topic](./img-kafka-topic-metadata.png)
 
 2. **Logstash Lag**: `kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group logstash-consumer-group-2` (Đảm bảo LAG thấp).
 
-![Ki?m tra consumer group lag](./img-logstash-consumer-lag.png)
 
 3. **ES Ingest**: `kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-*/_count?q=@timestamp:%5Bnow-5m%20TO%20now%5D&pretty"` (Đảm bảo có log mới trong 5 phút qua).
 
