@@ -745,22 +745,20 @@ kubectl get pods -n kafka-dung -l strimzi.io/name=my-cluster-kafka
 
 # Kiểm tra metadata của topic (Xác nhận có đủ 3 replicas và ISR ổn định)
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic dung-logs-topic
+```
 
 ![Ki?m tra metadata topic](kiem-tra-metadata.png)
-
-```
 
 #### B. Kiểm tra luồng dữ liệu thực tế
 ```powershell
 # Đọc nhanh 20 message để xem dữ liệu có vào topic không
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic dung-logs-topic --max-messages 20 --timeout-ms 10000
 
-![�?c nhanh 20 message](./img-kafka-read-20-messages.png)
-
-
 # Lọc riêng message frontend (có thể đổi frontend -> backend/database/webserver)
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic dung-logs-topic --max-messages 300 --timeout-ms 15000 | Select-String -Pattern '"service"\s*:\s*"frontend"'
 ```
+
+![�?c nhanh hai muoi message](doc-nhanh-haimuoi-msg.png)
 
 Chú thích nhanh:
 - Lệnh `--describe` phải cho thấy `ReplicationFactor: 3` và `Isr` gồm đủ 3 node (0,1,2).
@@ -780,23 +778,25 @@ kubectl logs -n elk -l app.kubernetes.io/name=logstash --since=1h | Select-Strin
 # Kiem tra runtime pipeline (events in/out, throughput) cua pod 0
 kubectl exec -n elk logstash-dung-logstash-0 -- curl -s http://localhost:9600/_node/stats/pipelines/main?pretty
 
-![Ki?m tra runtime pipeline](./img-logstash-runtime-pipeline.png)
-
 ```
+
+![Ki?m tra runtime pipeline](Kiem-tra-runtime-pipeline-cua-pod-log-stash-0.png)
 
 #### B. Kiểm tra Consumer Group Lag (Cực kỳ quan trọng)
 ```powershell
 # Kiểm tra xem Logstash có đang tiêu thụ log kịp không, hay bị tồn đọng (LAG)
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group logstash-consumer-group-2
 
-![Ki?m tra consumer group lag](./img-logstash-consumer-lag.png)
-
 ```
+
+![Ki?m tra consumer group lag](kiem-tra-lag.png)
 
 #### C. Lọc nhanh lỗi kết nối ES
 ```powershell
 kubectl logs -n elk -l app.kubernetes.io/name=logstash --since=10m | Select-String -Pattern "ERROR|Elasticsearch Unreachable"
 ```
+
+![Ki?m tra ket noi ES](kiem-tra-ket-noi-ES.png)
 
 Chú thích nhanh:
 - Pod Logstash phải `Running`, restart thấp.
