@@ -765,8 +765,8 @@ kubectl get pods -n elk -l app.kubernetes.io/name=logstash
 # Kiểm tra log khởi động - Tìm dòng "Successfully started Kafka consumer"
 kubectl logs -n elk -l app.kubernetes.io/name=logstash --since=1h | Select-String -Pattern "Successfully started Kafka consumer"
 
-# Log runtime 10 phút gần nhất của pod 0
-kubectl logs -n elk logstash-dung-logstash-0 --since=10m
+# Kiem tra runtime pipeline (events in/out, throughput) cua pod 0
+kubectl exec -n elk logstash-dung-logstash-0 -- curl -s http://localhost:9600/_node/stats/pipelines/main?pretty
 ```
 
 #### B. Kiểm tra Consumer Group Lag (Cực kỳ quan trọng)
@@ -837,3 +837,4 @@ Nếu fail:
 k get pod -n kafka-dung -o wide ; k get pod -n dung-lab -o wide ; k get pod -n elk -o wide
 
 ```
+
