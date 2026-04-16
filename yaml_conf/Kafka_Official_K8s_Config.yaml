@@ -12,11 +12,11 @@ spec:
   kafka:
     version: 4.1.0
     listeners:
-      - name: plain
+      - name: plain # luồng nội không mã hoá
         port: 9092
         type: internal
         tls: false
-      - name: tls
+      - name: tls # luồng nội bộ có mã hoá
         port: 9093
         type: internal
         tls: true
@@ -29,9 +29,26 @@ spec:
       # Thêm cấu hình tự dọn dẹp ổ cứng
       log.retention.bytes: 5368709120  # Giới hạn 5GB mỗi broker
       log.retention.check.interval.ms: 300000 # 5 phút kiểm tra xóa 1 lần
+
   entityOperator:
-    topicOperator: {}
-    userOperator: {}
+
+    topicOperator:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "128Mi"
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
+    userOperator:
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "128Mi"
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
+
 
 ---
 # Khai báo Node Pool riêng biệt để thay thế cho Zookeeper (Chế độ KRaft)
@@ -55,5 +72,13 @@ spec:
         size: 20Gi
         class: csi-cinder-sc-delete
         deleteClaim: false
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "1000m"
+      memory: "2Gi"
+
 
 

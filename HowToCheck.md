@@ -662,23 +662,36 @@ kubectl logs -n elk deployment/elastalert2 --tail=50
 kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/indices/dung-*?v"
 kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/aliases/dung-*?v"
 kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_ilm/policy/logs-lab-policy?pretty"
+```
 
+### 14.6 - Check các pod nhanh (Tất cả namespace liên quan)
+```powershell
+kubectl get pod -n kafka-dung -o wide ; kubectl get pod -n dung-lab -o wide ; kubectl get pod -n elk -o wide
 ```
 
 ---
 
-## 13. Kết luận
+## 15. Tổng kết quy trình kiểm tra (Quick Summary)
+
+Nếu bạn muốn kiểm tra nhanh "Sức khỏe" của toàn bộ Pipeline, hãy chạy 3 lệnh này:
+
+1. **Kafka Health**: `kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic dung-logs-topic` (Đảm bảo ISR đủ 3).
+2. **Logstash Lag**: `kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group logstash-consumer-group-2` (Đảm bảo LAG thấp).
+3. **ES Ingest**: `kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-*/_count?q=@timestamp:%5Bnow-5m%20TO%20now%5D&pretty"` (Đảm bảo có log mới trong 5 phút qua).
+
+---
+
+## 16. Kết luận
 
 Nếu bạn làm hết các bước kiểm tra trong file này và thấy kết quả đúng như mong đợi, thì có thể kết luận rằng hệ thống logging hiện tại đã đáp ứng được các yêu cầu bạn đặt ra ở mức triển khai thực tế trên cụm.
 
 Điểm quan trọng nhất để xác nhận nhanh là:
 
-- `dung-lab` có 4 pod sinh log
-- log đi vào `dung-*` thay vì chỉ ở `fluent-bit-*`
-- ILM có hiệu lực
-- mapping là tĩnh
-- Fluent Bit có filesystem buffer
-- ElastAlert đã bắn cảnh báo thật
+- `dung-lab` có đủ các pod sinh log và chạy rải đều trên các Node.
+- Log đi vào đúng partition của Kafka và được Logstash tiêu thụ với độ trễ (LAG) tối thiểu.
+- Log được Logstash xử lý, gán đúng `service` và đẩy vào các index `dung-fe|be|db|web-*`.
+- ILM và Mapping tĩnh hoạt động chính xác cho các index này.
+- Hệ thống có khả năng chịu lỗi (HA) ở mọi tầng: 3 Log generator, 3 Fluent Bit, 3 Kafka Brokers, 3 Logstash, 3 Elasticsearch master/data.
 
 ---
 

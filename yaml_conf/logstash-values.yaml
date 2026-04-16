@@ -1,9 +1,18 @@
-﻿replicas: 3
+replicas: 3
 antiAffinity: "hard"
 antiAffinityTopologyKey: "kubernetes.io/hostname"
 
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "1000m"
+    memory: "2Gi"
+
+
 # logstash-values.yaml
-# Helm chart: elastic/logstash
+# Helm chart: elastic/logstash (Dành cho ELK Stack)
 
 persistence:
   enabled: true
@@ -33,7 +42,8 @@ logstashPipeline:
     }
 
     filter {
-      # Fallback parse in case app JSON stays inside log/message fields.
+      # Tự động giải mã JSON từ trường 'log' nếu dữ liệu gốc bị bọc trong chuỗi văn bản
+      # Giúp Logstash tự động nhận diện và "mở hộp" các bản tin log bị đóng gói sai cách, đảm bảo bạn luôn có đầy đủ các trường dữ liệu (service, level, msg) để tìm kiếm trên giao diện web
       if ![service] and [log] =~ "^{.*}$" {
         json {
           source => "log"
@@ -46,12 +56,12 @@ logstashPipeline:
         }
       }
 
-      # Prevent Logstash self-ingest loop.
+      # Ngăn chặn vòng lặp tự hấp thụ log (self-ingest loop) của Logstash.
       if [kubernetes][pod_name] =~ /^logstash/ or [kubernetes][container_name] == "logstash" or [message] =~ /\[logstash\.outputs\.elasticsearch\]/ {
         drop {}
       }
 
-      # Normalize object-type event field to avoid mapping conflict (event=text in some templates).
+      # Chuẩn hóa trường 'event' kiểu Object để tránh xung đột kiểu dữ liệu (Mapping Conflict) trong Elasticsearch
       ruby {
         code => '
           e = event.get("event")
@@ -62,7 +72,7 @@ logstashPipeline:
         '
       }
 
-      # Normalize service field to string to avoid conflict when logs use ECS object service.name.
+      # Chuẩn hóa trường 'service' sang kiểu String để tránh xung đột khi log dùng ECS object service.name.
       ruby {
         code => '
           s = event.get("service")
@@ -78,7 +88,7 @@ logstashPipeline:
             end
           end
 
-          # Normalize dotted ECS field service.name if present as literal key.
+          # Chuẩn hóa trường 'service.name' có dấu chấm nếu tồn tại dưới dạng key văn bản.
           sdot = event.get("service.name")
           if sdot
             event.set("service", sdot) if event.get("service").nil?
@@ -86,7 +96,7 @@ logstashPipeline:
             event.remove("service.name")
           end
 
-          # Normalize dotted ECS field event.dataset to avoid conflict with app field event (string).
+          # Chuẩn hóa trường 'event.dataset' có dấu chấm để tránh xung đột với trường 'event' của ứng dụng (kiểu string).
           edot = event.get("event.dataset")
           if edot
             event.set("event_dataset", edot)
@@ -101,7 +111,7 @@ logstashPipeline:
     }
 
     output {
-      # Application logs: route by service first (independent from namespace).
+      # Log ứng dụng: Điều hướng theo 'service' trước (không phụ thuộc vào namespace).
       if [service] == "frontend" {
         elasticsearch {
           hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
@@ -138,7 +148,7 @@ logstashPipeline:
           index => "dung-web-write"
         }
       }
-      # dung-lab records without known service
+      # Các bản ghi từ namespace 'dung-lab' mà không xác định được service cụ thể.
       else if [kubernetes][namespace_name] == "dung-lab" {
         elasticsearch {
           hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
@@ -148,7 +158,7 @@ logstashPipeline:
           index => "dung-lab-khac-%{+YYYY.MM.dd}"
         }
       }
-      # Platform/system namespaces
+      # Các Namespace của hệ thống hoặc nền tảng (Platform/System).
       else if [kubernetes][namespace_name] =~ /^(kube-system|monitoring|ingress-nginx)$/ {
         elasticsearch {
           hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
@@ -158,7 +168,7 @@ logstashPipeline:
           index => "platform-k8s-%{+YYYY.MM.dd}"
         }
       }
-      # Remaining cluster namespaces
+      # Các Namespace còn lại trong cụm (Cluster).
       else {
         elasticsearch {
           hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]

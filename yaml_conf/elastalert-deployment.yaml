@@ -20,6 +20,14 @@ spec:
           - "--config"
           - "/opt/elastalert/config.yaml"
           - "--verbose"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "200m"
+            memory: "512Mi"
+
         volumeMounts:
         - name: config
           mountPath: /opt/elastalert/config.yaml

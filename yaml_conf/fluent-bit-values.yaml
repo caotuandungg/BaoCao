@@ -1,7 +1,16 @@
-﻿# Github config file:  https://github.com/fluent/helm-charts/blob/main/charts/fluent-bit/values.yaml
+# Github config file:  https://github.com/fluent/helm-charts/blob/main/charts/fluent-bit/values.yaml
 kind: DaemonSet
 hostNetwork: true
 dnsPolicy: ClusterFirstWithHostNet
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
 
 config:
   service: |
