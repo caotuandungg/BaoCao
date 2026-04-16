@@ -792,3 +792,9 @@ Nếu fail:
 - Fail ở 1 hoặc 2: khoanh vùng Fluent Bit/Kafka.
 - Fail ở 3: khoanh vùng Logstash.
 - Fail ở 4: khoanh vùng route/output sang Elasticsearch.
+
+### 14.6 - Check các pod
+```bash
+k get pod -n kafka-dung -o wide ; k get pod -n dung-lab -o wide ; k get pod -n elk -o wide
+
+```
