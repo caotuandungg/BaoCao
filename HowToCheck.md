@@ -676,7 +676,13 @@ kubectl get pod -n kafka-dung -o wide ; kubectl get pod -n dung-lab -o wide ; ku
 Nếu bạn muốn kiểm tra nhanh "Sức khỏe" của toàn bộ Pipeline, hãy chạy 3 lệnh này:
 
 1. **Kafka Health**: `kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic dung-logs-topic` (Đảm bảo ISR đủ 3).
+
+![Ki?m tra metadata topic](./img-kafka-topic-metadata.png)
+
 2. **Logstash Lag**: `kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group logstash-consumer-group-2` (Đảm bảo LAG thấp).
+
+![Ki?m tra consumer group lag](./img-logstash-consumer-lag.png)
+
 3. **ES Ingest**: `kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-*/_count?q=@timestamp:%5Bnow-5m%20TO%20now%5D&pretty"` (Đảm bảo có log mới trong 5 phút qua).
 
 ---
@@ -739,12 +745,18 @@ kubectl get pods -n kafka-dung -l strimzi.io/name=my-cluster-kafka
 
 # Kiểm tra metadata của topic (Xác nhận có đủ 3 replicas và ISR ổn định)
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic dung-logs-topic
+
+![Ki?m tra metadata topic](./img-kafka-topic-metadata.png)
+
 ```
 
 #### B. Kiểm tra luồng dữ liệu thực tế
 ```powershell
 # Đọc nhanh 20 message để xem dữ liệu có vào topic không
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic dung-logs-topic --max-messages 20 --timeout-ms 10000
+
+![�?c nhanh 20 message](./img-kafka-read-20-messages.png)
+
 
 # Lọc riêng message frontend (có thể đổi frontend -> backend/database/webserver)
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic dung-logs-topic --max-messages 300 --timeout-ms 15000 | Select-String -Pattern '"service"\s*:\s*"frontend"'
@@ -767,12 +779,18 @@ kubectl logs -n elk -l app.kubernetes.io/name=logstash --since=1h | Select-Strin
 
 # Kiem tra runtime pipeline (events in/out, throughput) cua pod 0
 kubectl exec -n elk logstash-dung-logstash-0 -- curl -s http://localhost:9600/_node/stats/pipelines/main?pretty
+
+![Ki?m tra runtime pipeline](./img-logstash-runtime-pipeline.png)
+
 ```
 
 #### B. Kiểm tra Consumer Group Lag (Cực kỳ quan trọng)
 ```powershell
 # Kiểm tra xem Logstash có đang tiêu thụ log kịp không, hay bị tồn đọng (LAG)
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group logstash-consumer-group-2
+
+![Ki?m tra consumer group lag](./img-logstash-consumer-lag.png)
+
 ```
 
 #### C. Lọc nhanh lỗi kết nối ES
