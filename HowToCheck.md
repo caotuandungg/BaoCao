@@ -779,7 +779,7 @@ kubectl logs -n elk -l app.kubernetes.io/name=logstash --since=1h | Select-Strin
 kubectl exec -n elk logstash-dung-logstash-0 -- curl -s http://localhost:9600/_node/stats/pipelines/main?pretty
 
 ```
-
+Kiểm tra runtime pipeline của pod 0
 ![Ki?m tra runtime pipeline](Kiem-tra-runtime-pipeline-cua-pod-log-stash-0.png)
 
 #### B. Kiểm tra Consumer Group Lag (Cực kỳ quan trọng)
