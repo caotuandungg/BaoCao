@@ -744,7 +744,7 @@ kubectl get pods -n kafka-dung -l strimzi.io/name=my-cluster-kafka
 # Kiểm tra metadata của topic (Xác nhận có đủ 3 replicas và ISR ổn định)
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic dung-logs-topic
 ```
-
+Kiểm tra metadata của topic (Xác nhận có đủ 3 replicas và ISR ổn định)
 ![Ki?m tra metadata topic](kiem-tra-metadata.png)
 
 #### B. Kiểm tra luồng dữ liệu thực tế
@@ -755,7 +755,7 @@ kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-console
 # Lọc riêng message frontend (có thể đổi frontend -> backend/database/webserver)
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic dung-logs-topic --max-messages 300 --timeout-ms 15000 | Select-String -Pattern '"service"\s*:\s*"frontend"'
 ```
-
+Đọc nhanh 20 message để xem dữ liệu có vào topic không
 ![�?c nhanh hai muoi message](doc-nhanh-haimuoi-msg.png)
 
 Chú thích nhanh:
@@ -786,14 +786,14 @@ Kiểm tra runtime pipeline của pod 0
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group logstash-consumer-group-2
 
 ```
-
+Kiểm tra xem Logstash có đang tiêu thụ log kịp không, hay bị tồn đọng (LAG)
 ![Ki?m tra consumer group lag](kiem-tra-lag.png)
 
 #### C. Lọc nhanh lỗi kết nối ES
 ```powershell
 kubectl logs -n elk -l app.kubernetes.io/name=logstash --since=10m | Select-String -Pattern "ERROR|Elasticsearch Unreachable"
 ```
-
+Lọc nhanh lỗi kết nối ES
 ![Ki?m tra ket noi ES](kiem-tra-ket-noi-ES.png)
 
 Chú thích nhanh:
