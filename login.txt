@@ -1,5 +1,6 @@
-kubectl port-forward svc/kibana-dung-kibana 5602:5601 -n elk
+kubectl port-forward -n elk-dung svc/kibana-dung-kibana 5602:5601
+
 
 elastic
 
-1qK@B5mQ
+1xNIfTEXaH0MsbQN

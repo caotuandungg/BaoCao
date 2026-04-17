@@ -2,6 +2,8 @@
 kind: DaemonSet
 hostNetwork: true
 dnsPolicy: ClusterFirstWithHostNet
+nodeSelector:
+  kubernetes.io/hostname: wk03
 
 resources:
   requests:

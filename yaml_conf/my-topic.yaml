@@ -5,8 +5,8 @@ metadata:
   labels:
     strimzi.io/cluster: my-cluster
 spec:
-  partitions: 3
-  replicas: 3
+  partitions: 1
+  replicas: 1
   config:
-    retention.ms: 7200000       # Chỉ giữ lại log trong vòng 2 tiếng (vượt 2 tiếng tự xóa dọn rác)
-    retention.bytes: 2147483648 # Phanh khẩn cấp: Chỉ cho phép dung lượng chứa túi đa 2GB mỗi partition
+    retention.ms: 7200000
+    retention.bytes: 1073741824

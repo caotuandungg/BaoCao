@@ -1,0 +1,27 @@
+# Elasticsearch values (minimal) for personal logging stack on wk03
+
+replicas: 1
+
+nodeSelector:
+  kubernetes.io/hostname: wk03
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "2Gi"
+  limits:
+    cpu: "1000m"
+    memory: "2Gi"
+
+volumeClaimTemplate:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: "csi-cinder-sc-delete"
+  resources:
+    requests:
+      storage: 10Gi
+
+esConfig:
+  elasticsearch.yml: |
+    xpack.security.enabled: true
+    xpack.security.http.ssl.enabled: true
+

@@ -1,14 +1,16 @@
-replicas: 3
+replicas: 1
 antiAffinity: "hard"
 antiAffinityTopologyKey: "kubernetes.io/hostname"
+nodeSelector:
+  kubernetes.io/hostname: wk03
 
 resources:
   requests:
-    cpu: "500m"
-    memory: "1Gi"
+    cpu: "300m"
+    memory: "512Mi"
   limits:
-    cpu: "1000m"
-    memory: "2Gi"
+    cpu: "800m"
+    memory: "1Gi"
 
 persistence:
   enabled: true
@@ -18,7 +20,7 @@ volumeClaimTemplate:
   storageClassName: "csi-cinder-sc-delete"
   resources:
     requests:
-      storage: 2Gi
+      storage: 1Gi
 
 logstashConfig:
   logstash.yml: |
@@ -95,70 +97,76 @@ logstashPipeline:
       }
 
       mutate {
-        remove_field => ["[kubernetes][labels]"]
+        remove_field => [
+          "[kubernetes][labels]",
+          "[process_exec][parent][pod][pod_labels]",
+          "[process_exec][process][pod][pod_labels]",
+          "[process_exit][process][pod][pod_labels]",
+          "[process_exit][parent][pod][pod_labels]"
+        ]
       }
     }
 
     output {
       if [service] == "frontend" {
         elasticsearch {
-          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
           user => "elastic"
-          password => "1qK@B5mQ"
+          password => "1xNIfTEXaH0MsbQN"
           ssl_certificate_verification => false
           index => "dung-fe-write"
         }
       }
       else if [service] == "backend" {
         elasticsearch {
-          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
           user => "elastic"
-          password => "1qK@B5mQ"
+          password => "1xNIfTEXaH0MsbQN"
           ssl_certificate_verification => false
           index => "dung-be-write"
         }
       }
       else if [service] == "database" {
         elasticsearch {
-          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
           user => "elastic"
-          password => "1qK@B5mQ"
+          password => "1xNIfTEXaH0MsbQN"
           ssl_certificate_verification => false
           index => "dung-db-write"
         }
       }
       else if [service] == "webserver" {
         elasticsearch {
-          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
           user => "elastic"
-          password => "1qK@B5mQ"
+          password => "1xNIfTEXaH0MsbQN"
           ssl_certificate_verification => false
           index => "dung-web-write"
         }
       }
       else if [kubernetes][namespace_name] == "dung-lab" {
         elasticsearch {
-          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
           user => "elastic"
-          password => "1qK@B5mQ"
+          password => "1xNIfTEXaH0MsbQN"
           ssl_certificate_verification => false
           index => "dung-lab-khac-%{+YYYY.MM.dd}"
         }
       }
       else if [kubernetes][namespace_name] =~ /^(kube-system|monitoring|ingress-nginx)$/ {
         elasticsearch {
-          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
           user => "elastic"
-          password => "1qK@B5mQ"
+          password => "1xNIfTEXaH0MsbQN"
           ssl_certificate_verification => false
           index => "platform-k8s-%{+YYYY.MM.dd}"
         }
       }
       else {
         elasticsearch {
-          hosts => ["https://elasticsearch-master.elk.svc.cluster.local:9200"]
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
           user => "elastic"
-          password => "1qK@B5mQ"
+          password => "1xNIfTEXaH0MsbQN"
           ssl_certificate_verification => false
           index => "cluster-khac-%{+YYYY.MM.dd}"
         }

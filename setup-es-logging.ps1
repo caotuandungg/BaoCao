@@ -3,10 +3,15 @@
 
 $ErrorActionPreference = "Stop"
 
+# Scope cấu hình Elasticsearch mục tiêu (đã tách riêng cho môi trường của bạn)
+$ElasticNamespace = "elk-dung"
+$ElasticUser = "elastic"
+$ElasticPassword = "1xNIfTEXaH0MsbQN"
+
 # 1. Khởi động tiến trình chạy ngầm để mở "đường hầm" (port-forward) 
 # Kết nối từ cổng 9200 của máy cục bộ vào cổng 9200 của dịch vụ Elasticsearch trong K8s
 $portForward = Start-Process -FilePath "kubectl" `
-    -ArgumentList @("port-forward", "svc/elasticsearch-master", "9200:9200", "-n", "elk") `
+    -ArgumentList @("port-forward", "svc/elasticsearch-master", "9200:9200", "-n", $ElasticNamespace) `
     -PassThru `
     -WindowStyle Hidden # Chạy ẩn để không làm phiền màn hình người dùng
 
@@ -41,12 +46,12 @@ function Invoke-CurlJson {
         # -u: Thông tin đăng nhập (username:password)
         # -H: Khai báo định dạng dữ liệu gửi đi là JSON
         # --data-binary: Đính kèm nội dung file JSON vào yêu cầu
-        & curl.exe -s -k -u "elastic:1qK@B5mQ" -X $Method "https://localhost:9200$Path" `
+        & curl.exe -s -k -u "${ElasticUser}:${ElasticPassword}" -X $Method "https://localhost:9200$Path" `
             -H "Content-Type: application/json" `
             --data-binary "@$FilePath"
     } else {
         # Nếu không có file (chỉ là lệnh gửi thông tin đơn giản)
-        & curl.exe -s -k -u "elastic:1qK@B5mQ" -X $Method "https://localhost:9200$Path"
+        & curl.exe -s -k -u "${ElasticUser}:${ElasticPassword}" -X $Method "https://localhost:9200$Path"
     }
 }
 

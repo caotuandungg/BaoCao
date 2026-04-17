@@ -163,7 +163,7 @@ Nếu có đủ các mục trên, tức là yêu cầu số 3, 4, 5 đã đượ
 ### 4.1. Kiểm tra index riêng
 
 ```powershell
-kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/indices/dung-*?v"
+kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic: "https://localhost:9200/_cat/indices/dung-*?v"
 ```
 
 Kết quả mong đợi:
@@ -255,7 +255,7 @@ Nếu có điều này, thì yêu cầu số 4 đã đạt.
 ### 6.1. Kiểm tra policy
 
 ```powershell
-kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_ilm/policy/logs-lab-policy"
+kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1xNIfTEXaH0MsbQN "https://localhost:9200/_ilm/policy/logs-lab-policy"
 ```
 
 Kết quả mong đợi:

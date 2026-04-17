@@ -9,7 +9,7 @@ metadata:
     purpose: log-testing
     component: web
 spec:
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: dung-web-log-generator
@@ -22,6 +22,8 @@ spec:
         purpose: log-testing
         component: web
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: wk03
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

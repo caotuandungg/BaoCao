@@ -21,35 +21,35 @@ spec:
         type: internal
         tls: true
     config:
-      offsets.topic.replication.factor: 3
-      transaction.state.log.replication.factor: 3
-      transaction.state.log.min.isr: 2
-      default.replication.factor: 3
-      min.insync.replicas: 2
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 1
+      min.insync.replicas: 1
       # Thêm cấu hình tự dọn dẹp ổ cứng
       log.retention.bytes: 5368709120  # Giới hạn 5GB mỗi broker
       log.retention.check.interval.ms: 300000 # 5 phút kiểm tra xóa 1 lần
 
   entityOperator:
-
+    template:
+      pod:
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                    - key: kubernetes.io/hostname
+                      operator: In
+                      values:
+                        - wk03
     topicOperator:
       resources:
         requests:
-          cpu: "100m"
+          cpu: "50m"
           memory: "128Mi"
         limits:
-          cpu: "500m"
-          memory: "512Mi"
-    userOperator:
-      resources:
-        requests:
-          cpu: "100m"
-          memory: "128Mi"
-        limits:
-          cpu: "500m"
-          memory: "512Mi"
-
-
+          cpu: "200m"
+          memory: "256Mi"
 ---
 # Khai báo Node Pool riêng biệt để thay thế cho Zookeeper (Chế độ KRaft)
 apiVersion: kafka.strimzi.io/v1
@@ -60,7 +60,18 @@ metadata:
     # Liên kết Node Pool này với cụm Kafka "my-cluster" ở trên
     strimzi.io/cluster: my-cluster
 spec:
-  replicas: 3
+  replicas: 1
+  template:
+    pod:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - wk03
   roles:
     - controller
     - broker
@@ -69,16 +80,16 @@ spec:
     volumes:
       - id: 0
         type: persistent-claim
-        size: 20Gi
+        size: 8Gi
         class: csi-cinder-sc-delete
         deleteClaim: false
   resources:
     requests:
-      cpu: "500m"
-      memory: "1Gi"
+      cpu: "300m"
+      memory: "768Mi"
     limits:
-      cpu: "1000m"
-      memory: "2Gi"
+      cpu: "800m"
+      memory: "1536Mi"
 
 
 

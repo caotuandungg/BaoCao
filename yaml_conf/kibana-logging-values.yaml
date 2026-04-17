@@ -1,7 +1,7 @@
 # Cấu hình Kibana Logging - High Availability (HA)
 # File này dùng để chạy lệnh: helm upgrade kibana-dung elastic/kibana -f kibana-logging-values.yaml --namespace elk
 
-elasticsearchHosts: "https://elasticsearch-master:9200"
+elasticsearchHosts: "https://elasticsearch-master.elk-dung.svc:9200"
 
 kibanaConfig:
   kibana.yml: |
@@ -11,8 +11,10 @@ service:
   port: 5601
 
 # Thiết lập HA: 3 bản sao rải đều trên 3 Node
-replicas: 3
+replicas: 1
 antiAffinity: "hard" 
+nodeSelector:
+  kubernetes.io/hostname: wk03
 
 resources:
   requests:

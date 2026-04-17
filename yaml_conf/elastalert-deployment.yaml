@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: elastalert2
-  namespace: elk
+  namespace: elk-dung
 spec:
   replicas: 1
   selector:
@@ -13,6 +13,8 @@ spec:
       labels:
         app: elastalert2
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: wk03
       containers:
       - name: elastalert2
         image: jertel/elastalert2:2.21.0

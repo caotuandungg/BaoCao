@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: elastalert-rules
-  namespace: elk
+  namespace: elk-dung
 data:
   backend-error-alert.yaml: |
     name: "Backend Error Count Alert"
