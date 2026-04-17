@@ -1,4 +1,4 @@
-# How To Check
+﻿# How To Check
 
 ## 1. Mục tiêu
 
@@ -756,7 +756,7 @@ kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-console
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic dung-logs-topic --max-messages 300 --timeout-ms 15000 | Select-String -Pattern '"service"\s*:\s*"frontend"'
 ```
 Đọc nhanh 20 message để xem dữ liệu có vào topic không
-![�?c nhanh hai muoi message](doc-nhanh-haimuoi-msg.png)
+![ï¿½?c nhanh hai muoi message](doc-nhanh-haimuoi-msg.png)
 
 Chú thích nhanh:
 - Lệnh `--describe` phải cho thấy `ReplicationFactor: 3` và `Isr` gồm đủ 3 node (0,1,2).
@@ -767,14 +767,14 @@ Chú thích nhanh:
 
 #### A. Kiểm tra trạng thái Pod và Pipeline
 ```powershell
-# Kiểm tra tất cả các pod Logstash (nên có 3 pod theo HA)
-kubectl get pods -n elk -l app.kubernetes.io/name=logstash
+# Kiểm tra pod Logstash hiện tại (đang chạy 1 replica)
+kubectl get pods -n elk-dung -l app=logstash-dung-logstash -o wide
 
 # Kiểm tra log khởi động - Tìm dòng "Successfully started Kafka consumer"
-kubectl logs -n elk -l app.kubernetes.io/name=logstash --since=1h | Select-String -Pattern "Successfully started Kafka consumer"
+kubectl logs -n elk-dung logstash-dung-logstash-0 --since=1h | Select-String -Pattern "Successfully started Kafka consumer"
 
 # Kiem tra runtime pipeline (events in/out, throughput) cua pod 0
-kubectl exec -n elk logstash-dung-logstash-0 -- curl -s http://localhost:9600/_node/stats/pipelines/main?pretty
+kubectl exec -n elk-dung logstash-dung-logstash-0 -- curl -s http://localhost:9600/_node/stats/pipelines/main?pretty
 
 ```
 Kiểm tra runtime pipeline của pod 0
@@ -791,7 +791,7 @@ Kiểm tra xem Logstash có đang tiêu thụ log kịp không, hay bị tồn �
 
 #### C. Lọc nhanh lỗi kết nối ES
 ```powershell
-kubectl logs -n elk -l app.kubernetes.io/name=logstash --since=10m | Select-String -Pattern "ERROR|Elasticsearch Unreachable"
+kubectl logs -n elk-dung -l app.kubernetes.io/name=logstash --since=10m | Select-String -Pattern "ERROR|Elasticsearch Unreachable"
 ```
 Lọc nhanh lỗi kết nối ES
 ![Ki?m tra ket noi ES](kiem-tra-ket-noi-ES.png)
@@ -806,26 +806,25 @@ Chú thích nhanh:
 #### A. Kiểm tra số lượng log mới (Ingest Rate)
 ```powershell
 # Count trong 15 phút gần nhất cho từng nhóm index (nếu > 0 là OK)
-kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-fe-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
-kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-be-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
-kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-db-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
-kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-web-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
+kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1xNIfTEXaH0MsbQN "https://localhost:9200/dung-fe-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
+kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1xNIfTEXaH0MsbQN "https://localhost:9200/dung-be-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
+kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1xNIfTEXaH0MsbQN "https://localhost:9200/dung-db-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
+kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1xNIfTEXaH0MsbQN "https://localhost:9200/dung-web-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
 ```
 
 #### B. Chẩn đoán khi không thấy log trong `dung-*`
 Nếu `dung-*` không có log mới, hãy kiểm tra xem log có bị đẩy vào index "rác" (fallback) do sai lệch field `service` không:
 ```powershell
 # 1) Kiểm tra xem log có rơi vào index "khác" của lab không
-kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-lab-khac-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
+kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1xNIfTEXaH0MsbQN "https://localhost:9200/dung-lab-khac-*/_count?q=@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
 
 # 2) Kiểm tra xem log có rơi vào index cluster chung không
-kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/cluster-khac-*/_count?q=kubernetes.namespace_name:dung-lab%20AND%20@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
+kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1xNIfTEXaH0MsbQN "https://localhost:9200/cluster-khac-*/_count?q=kubernetes.namespace_name:dung-lab%20AND%20@timestamp:%5Bnow-15m%20TO%20now%5D&pretty"
 ```
 
 Chú thích nhanh:
 - `count > 0` trong `now-15m` là dấu hiệu ingest đang realtime.
 - Nếu `cluster-khac-*` có log của `dung-lab`, hãy kiểm tra lại cấu hình `filter` trong Logstash (đặc biệt là phần normalize field `service`).
-```
 
 Chú thích nhanh:
 - `count > 0` trong `now-15m` là dấu hiệu ingest đang realtime.
@@ -853,4 +852,3 @@ Nếu fail:
 k get pod -n kafka-dung -o wide ; k get pod -n dung-lab -o wide ; k get pod -n elk -o wide
 
 ```
-
