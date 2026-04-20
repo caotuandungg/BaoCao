@@ -1,8 +1,8 @@
-replicas: 1
+replicas: 2
 antiAffinity: "hard"
 antiAffinityTopologyKey: "kubernetes.io/hostname"
 nodeSelector:
-  kubernetes.io/hostname: wk03
+  dung.io/logstash-node: "true"
 
 resources:
   requests:
@@ -26,6 +26,7 @@ logstashConfig:
   logstash.yml: |
     http.host: "0.0.0.0"
     xpack.monitoring.enabled: false
+    pipeline.workers: 1
 
 logstashPipeline:
   logstash.conf: |

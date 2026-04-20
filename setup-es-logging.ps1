@@ -79,6 +79,24 @@ $files = @{
   }
 }
 '@
+    "ilm-delete-only.json" = @'
+{
+  "policy": {
+    "phases": {
+      "hot": {
+        "min_age": "0ms",
+        "actions": {}
+      },
+      "delete": {
+        "min_age": "1d",
+        "actions": {
+          "delete": {}
+        }
+      }
+    }
+  }
+}
+'@
     "dung-fe-template.json" = @'
 {
   "index_patterns": ["dung-fe-*"],
@@ -227,6 +245,105 @@ $files = @{
   "priority": 500
 }
 '@
+    "dung-lab-khac-template.json" = @'
+{
+  "index_patterns": ["dung-lab-khac-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1,
+      "index.lifecycle.name": "logs-delete-only-policy"
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "service": { "type": "keyword", "ignore_above": 256 },
+        "service_name": { "type": "keyword", "ignore_above": 256 },
+        "level": { "type": "keyword", "ignore_above": 256 },
+        "event_dataset": { "type": "keyword", "ignore_above": 256 },
+        "message": { "type": "text" },
+        "event_original": { "type": "text" },
+        "kubernetes": {
+          "properties": {
+            "namespace_name": { "type": "keyword" },
+            "pod_name": { "type": "keyword" },
+            "container_name": { "type": "keyword" },
+            "host": { "type": "keyword" }
+          }
+        }
+      }
+    }
+  },
+  "priority": 400
+}
+'@
+    "platform-k8s-template.json" = @'
+{
+  "index_patterns": ["platform-k8s-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1,
+      "index.lifecycle.name": "logs-delete-only-policy"
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "service": { "type": "keyword", "ignore_above": 256 },
+        "service_name": { "type": "keyword", "ignore_above": 256 },
+        "level": { "type": "keyword", "ignore_above": 256 },
+        "event_dataset": { "type": "keyword", "ignore_above": 256 },
+        "message": { "type": "text" },
+        "event_original": { "type": "text" },
+        "kubernetes": {
+          "properties": {
+            "namespace_name": { "type": "keyword" },
+            "pod_name": { "type": "keyword" },
+            "container_name": { "type": "keyword" },
+            "host": { "type": "keyword" }
+          }
+        }
+      }
+    }
+  },
+  "priority": 400
+}
+'@
+    "cluster-khac-template.json" = @'
+{
+  "index_patterns": ["cluster-khac-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1,
+      "index.lifecycle.name": "logs-delete-only-policy"
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "service": { "type": "keyword", "ignore_above": 256 },
+        "service_name": { "type": "keyword", "ignore_above": 256 },
+        "level": { "type": "keyword", "ignore_above": 256 },
+        "event_dataset": { "type": "keyword", "ignore_above": 256 },
+        "message": { "type": "text" },
+        "event_original": { "type": "text" },
+        "kubernetes": {
+          "properties": {
+            "namespace_name": { "type": "keyword" },
+            "pod_name": { "type": "keyword" },
+            "container_name": { "type": "keyword" },
+            "host": { "type": "keyword" }
+          }
+        }
+      }
+    }
+  },
+  "priority": 400
+}
+'@
     "dung-fe-bootstrap.json" = @'
 {
   "aliases": {
@@ -275,12 +392,16 @@ try {
     # Gọi hàm Invoke-CurlJson để đẩy lần lượt các file cấu hình vào Elasticsearch API
     # 1. Nạp ILM
     Invoke-CurlJson -Method PUT -Path "/_ilm/policy/logs-lab-policy" -FilePath (Join-Path $tempDir "ilm.json")
+    Invoke-CurlJson -Method PUT -Path "/_ilm/policy/logs-delete-only-policy" -FilePath (Join-Path $tempDir "ilm-delete-only.json")
     
     # 2. Nạp các bản Index Templates cho từng dịch vụ
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-fe-template" -FilePath (Join-Path $tempDir "dung-fe-template.json")
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-be-template" -FilePath (Join-Path $tempDir "dung-be-template.json")
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-db-template" -FilePath (Join-Path $tempDir "dung-db-template.json")
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-web-template" -FilePath (Join-Path $tempDir "dung-web-template.json")
+    Invoke-CurlJson -Method PUT -Path "/_index_template/dung-lab-khac-template" -FilePath (Join-Path $tempDir "dung-lab-khac-template.json")
+    Invoke-CurlJson -Method PUT -Path "/_index_template/platform-k8s-template" -FilePath (Join-Path $tempDir "platform-k8s-template.json")
+    Invoke-CurlJson -Method PUT -Path "/_index_template/cluster-khac-template" -FilePath (Join-Path $tempDir "cluster-khac-template.json")
     
     # 3. Khởi tạo các Index đầu tiên (Bootstrap) và gắn Alias ghi dữ liệu
     Invoke-CurlJson -Method PUT -Path "/dung-fe-000001" -FilePath (Join-Path $tempDir "dung-fe-bootstrap.json")

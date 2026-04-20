@@ -255,7 +255,8 @@ Nếu có điều này, thì yêu cầu số 4 đã đạt.
 ### 6.1. Kiểm tra policy
 
 ```powershell
-kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1xNIfTEXaH0MsbQN "https://localhost:9200/_ilm/policy/logs-lab-policy"
+kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1xNIfTEXaH0MsbQN "https://localhost:9200/_ilm/policy/logs-lab-policy?pretty"
+kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1xNIfTEXaH0MsbQN "https://localhost:9200/_ilm/policy/logs-delete-only-policy?pretty"
 ```
 
 Kết quả mong đợi:
@@ -271,6 +272,7 @@ kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "http
 kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/dung-be-000001/_ilm/explain"
 
 kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_ilm/policy/logs-lab-policy?pretty"
+
 ```
 
 Kết quả mong đợi:
@@ -658,10 +660,10 @@ kubectl get pods -n dung-lab
 kubectl logs -n dung-lab deployment/dung-fe-log-generator --tail=5
 kubectl logs -n dung-lab deployment/dung-be-log-generator --tail=5
 kubectl get pods -n elk -l app.kubernetes.io/name=fluent-bit
-kubectl logs -n elk deployment/elastalert2 --tail=50
-kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/indices/dung-*?v"
-kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/aliases/dung-*?v"
-kubectl exec -n elk elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_ilm/policy/logs-lab-policy?pretty"
+kubectl logs -n elk-dung deployment/elastalert2 --tail=50
+kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/indices/dung-*?v"
+kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_cat/aliases/dung-*?v"
+kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1qK@B5mQ "https://localhost:9200/_ilm/policy/logs-lab-policy?pretty"
 ```
 
 ### 14.6 - Check các pod nhanh (Tất cả namespace liên quan)
@@ -714,13 +716,13 @@ Nên chạy theo đúng thứ tự bên dưới.
 
 ```powershell
 # Kiểm tra pod Fluent Bit trên các node
-kubectl get pods -n elk -l app.kubernetes.io/name=fluent-bit -o wide
+kubectl get pods -n elk-dung -l app.kubernetes.io/name=fluent-bit -o wide
 
 # Kiểm tra rollout DaemonSet
 kubectl rollout status daemonset/fluent-bit -n elk
 
 # Kiểm tra config thực tế đang chạy (không chỉ file local)
-kubectl get configmap fluent-bit -n elk -o jsonpath='{.data.fluent-bit\.conf}'
+kubectl get configmap fluent-bit -n elk-dung -o jsonpath='{.data.fluent-bit\.conf}'
 
 # Kiểm tra log 5 phút gần nhất của Fluent Bit
 kubectl logs -n elk -l app.kubernetes.io/name=fluent-bit --since=5m --tail=120
@@ -782,7 +784,7 @@ Kiểm tra runtime pipeline của pod 0
 
 #### B. Kiểm tra Consumer Group Lag (Cực kỳ quan trọng)
 ```powershell
-# Kiểm tra xem Logstash có đang tiêu thụ log kịp không, hay bị tồn đọng (LAG)
+# Kiểm tra xem Logstash có đang tiêu thụ log kịp không, hay bị tồn đọng (LAG) , lệnh này đồng thời cũng liệt kê các logstash có trong consumer group
 kubectl exec -n kafka-dung my-cluster-combined-0 -- /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group logstash-consumer-group-2
 
 ```
@@ -852,3 +854,5 @@ Nếu fail:
 k get pod -n kafka-dung -o wide ; k get pod -n dung-lab -o wide ; k get pod -n elk -o wide
 
 ```
+
+15. Các lệnh check nhanh 
