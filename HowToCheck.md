@@ -373,8 +373,8 @@ Hiện tại trên cụm đã quan sát được thực tế:
 ### 8.1. Kiểm tra deployment ElastAlert
 
 ```powershell
-kubectl get deploy -n elk elastalert2
-kubectl get pods -n elk -l app=elastalert2
+kubectl get deploy -n elk-dung elastalert2
+kubectl get pods -n elk-dung -l app=elastalert2
 ```
 
 Kết quả mong đợi:
@@ -385,7 +385,7 @@ Kết quả mong đợi:
 ### 8.2. Kiểm tra log khởi động
 
 ```powershell
-kubectl logs -n elk deployment/elastalert2 --tail=100
+kubectl logs -n elk-dung deployment/elastalert2 --tail=100
 ```
 
 Kết quả mong đợi:
@@ -397,7 +397,7 @@ Kết quả mong đợi:
 ### 8.3. Kiểm tra alert đã bắn thật chưa
 
 ```powershell
-kubectl logs -n elk deployment/elastalert2 --tail=200
+kubectl logs -n elk-dung deployment/elastalert2 --tail=200
 ```
 
 Kết quả mong đợi:
@@ -426,7 +426,7 @@ Nếu thấy các dòng này thì yêu cầu số 6 đã đạt.
 Nếu bạn dùng Kibana riêng cho logging:
 
 ```powershell
-kubectl port-forward svc/kibana-dung-kibana 5602:5601 -n elk
+kubectl port-forward svc/kibana-dung-kibana 5602:5601 -n elk-dung
 ```
 
 Sau đó mở:
