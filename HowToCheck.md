@@ -252,7 +252,7 @@ Nếu có điều này, thì yêu cầu số 4 đã đạt.
 
 ## 6. Kiểm tra ILM
 
-### 6.1. Kiểm tra policy
+### 6.1. Kiểmm tra policy
 
 ```powershell
 kubectl exec -n elk-dung elasticsearch-master-0 -- curl -sk -u elastic:1xNIfTEXaH0MsbQN "https://localhost:9200/_ilm/policy/logs-lab-policy?pretty"
