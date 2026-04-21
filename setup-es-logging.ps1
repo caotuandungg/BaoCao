@@ -245,9 +245,9 @@ $files = @{
   "priority": 500
 }
 '@
-    "dung-lab-khac-template.json" = @'
+    "wk03-logs-template.json" = @'
 {
-  "index_patterns": ["dung-lab-khac-*"],
+  "index_patterns": ["wk03-logs-*"],
   "template": {
     "settings": {
       "number_of_shards": 1,
@@ -264,72 +264,7 @@ $files = @{
         "event_dataset": { "type": "keyword", "ignore_above": 256 },
         "message": { "type": "text" },
         "event_original": { "type": "text" },
-        "kubernetes": {
-          "properties": {
-            "namespace_name": { "type": "keyword" },
-            "pod_name": { "type": "keyword" },
-            "container_name": { "type": "keyword" },
-            "host": { "type": "keyword" }
-          }
-        }
-      }
-    }
-  },
-  "priority": 400
-}
-'@
-    "platform-k8s-template.json" = @'
-{
-  "index_patterns": ["platform-k8s-*"],
-  "template": {
-    "settings": {
-      "number_of_shards": 1,
-      "number_of_replicas": 1,
-      "index.lifecycle.name": "logs-delete-only-policy"
-    },
-    "mappings": {
-      "dynamic": true,
-      "properties": {
-        "@timestamp": { "type": "date" },
-        "service": { "type": "keyword", "ignore_above": 256 },
-        "service_name": { "type": "keyword", "ignore_above": 256 },
-        "level": { "type": "keyword", "ignore_above": 256 },
-        "event_dataset": { "type": "keyword", "ignore_above": 256 },
-        "message": { "type": "text" },
-        "event_original": { "type": "text" },
-        "kubernetes": {
-          "properties": {
-            "namespace_name": { "type": "keyword" },
-            "pod_name": { "type": "keyword" },
-            "container_name": { "type": "keyword" },
-            "host": { "type": "keyword" }
-          }
-        }
-      }
-    }
-  },
-  "priority": 400
-}
-'@
-    "cluster-khac-template.json" = @'
-{
-  "index_patterns": ["cluster-khac-*"],
-  "template": {
-    "settings": {
-      "number_of_shards": 1,
-      "number_of_replicas": 1,
-      "index.lifecycle.name": "logs-delete-only-policy"
-    },
-    "mappings": {
-      "dynamic": true,
-      "properties": {
-        "@timestamp": { "type": "date" },
-        "service": { "type": "keyword", "ignore_above": 256 },
-        "service_name": { "type": "keyword", "ignore_above": 256 },
-        "level": { "type": "keyword", "ignore_above": 256 },
-        "event_dataset": { "type": "keyword", "ignore_above": 256 },
-        "message": { "type": "text" },
-        "event_original": { "type": "text" },
+        "node_name": { "type": "keyword", "ignore_above": 256 },
         "kubernetes": {
           "properties": {
             "namespace_name": { "type": "keyword" },
@@ -380,6 +315,15 @@ $files = @{
   }
 }
 '@
+    "wk03-logs-bootstrap.json" = @'
+{
+  "aliases": {
+    "wk03-logs-write": {
+      "is_write_index": true
+    }
+  }
+}
+'@
 }
 
 
@@ -399,15 +343,14 @@ try {
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-be-template" -FilePath (Join-Path $tempDir "dung-be-template.json")
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-db-template" -FilePath (Join-Path $tempDir "dung-db-template.json")
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-web-template" -FilePath (Join-Path $tempDir "dung-web-template.json")
-    Invoke-CurlJson -Method PUT -Path "/_index_template/dung-lab-khac-template" -FilePath (Join-Path $tempDir "dung-lab-khac-template.json")
-    Invoke-CurlJson -Method PUT -Path "/_index_template/platform-k8s-template" -FilePath (Join-Path $tempDir "platform-k8s-template.json")
-    Invoke-CurlJson -Method PUT -Path "/_index_template/cluster-khac-template" -FilePath (Join-Path $tempDir "cluster-khac-template.json")
+    Invoke-CurlJson -Method PUT -Path "/_index_template/wk03-logs-template" -FilePath (Join-Path $tempDir "wk03-logs-template.json")
     
     # 3. Khởi tạo các Index đầu tiên (Bootstrap) và gắn Alias ghi dữ liệu
     Invoke-CurlJson -Method PUT -Path "/dung-fe-000001" -FilePath (Join-Path $tempDir "dung-fe-bootstrap.json")
     Invoke-CurlJson -Method PUT -Path "/dung-be-000001" -FilePath (Join-Path $tempDir "dung-be-bootstrap.json")
     Invoke-CurlJson -Method PUT -Path "/dung-db-000001" -FilePath (Join-Path $tempDir "dung-db-bootstrap.json")
     Invoke-CurlJson -Method PUT -Path "/dung-web-000001" -FilePath (Join-Path $tempDir "dung-web-bootstrap.json")
+    Invoke-CurlJson -Method PUT -Path "/wk03-logs-000001" -FilePath (Join-Path $tempDir "wk03-logs-bootstrap.json")
     
     Write-Host "Elasticsearch ILM, templates, and aliases have been configured."
 }
