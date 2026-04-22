@@ -1,0 +1,92 @@
+# Cấu hình OTel Collector Agent (Giai đoạn 2)
+# File này dùng để deploy bằng Helm Chart: open-telemetry/opentelemetry-collector (DaemonSet)
+
+mode: daemonset
+
+# Cần cấp quyền RBAC để OTel đọc được metadata từ K8s API
+rbac:
+  create: true
+
+# Mount các thư mục log từ Node vào Pod
+extraVolumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+  - name: varlibdockercontainers
+    hostPath:
+      path: /var/lib/docker/containers
+
+extraVolumeMounts:
+  - name: varlog
+    mountPath: /var/log
+    readOnly: true
+  - name: varlibdockercontainers
+    mountPath: /var/lib/docker/containers
+    readOnly: true
+
+config:
+  receivers:
+    filelog:
+      include:
+        - /var/log/containers/*.log
+      exclude:
+        # Loại bỏ log của chính OTel để tránh vòng lặp log
+        - /var/log/containers/otel-agent*.log
+      start_at: end
+      operators:
+        - type: container
+          id: container-parser
+
+  processors:
+    batch:
+      send_batch_size: 1000
+      timeout: 10s
+
+    # Lấy metadata từ K8s API
+    k8sattributes:
+      auth_type: "serviceAccount"
+      passthrough: false
+      extract:
+        metadata:
+          - k8s.pod.name
+          - k8s.namespace.name
+          - k8s.container.name
+          - k8s.node.name
+      pod_association:
+        - sources:
+            - from: resource_attribute
+              name: k8s.pod.name
+
+    # Đổi tên các trường để khớp với logic Logstash cũ (kubernetes.pod_name)
+    transform:
+      error_mode: ignore
+      log_statements:
+        - context: resource
+          statements:
+            - set(attributes["kubernetes"], {})
+            - set(attributes["kubernetes"]["pod_name"], attributes["k8s.pod.name"])
+            - set(attributes["kubernetes"]["container_name"], attributes["k8s.container.name"])
+            - set(attributes["kubernetes"]["namespace_name"], attributes["k8s.namespace.name"])
+            - set(attributes["service"], attributes["k8s.container.name"])
+
+  exporters:
+    kafka:
+      brokers:
+        - my-cluster-kafka-bootstrap.kafka-dung.svc:9092
+      topic: dung-logs-topic
+      encoding: json
+
+  service:
+    pipelines:
+      logs:
+        receivers: [filelog]
+        processors: [k8sattributes, transform, batch]
+        exporters: [kafka]
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
