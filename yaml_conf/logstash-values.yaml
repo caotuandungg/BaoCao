@@ -70,11 +70,17 @@ logstashPipeline:
         mutate {
           rename => {
             "[grafana][logger]" => "grafana_logger"
+            "[grafana][t]" => "grafana_t"
+            "[grafana][time]" => "grafana_time"
+            "[grafana][caller]" => "grafana_caller"
             "[grafana][userId]" => "grafana_user_id"
             "[grafana][orgId]" => "grafana_org_id"
+            "[grafana][orgID]" => "grafana_org_id_alt"
             "[grafana][uname]" => "grafana_uname"
             "[grafana][level]" => "grafana_level"
             "[grafana][msg]" => "grafana_msg"
+            "[grafana][error]" => "grafana_error"
+            "[grafana][version]" => "grafana_version"
             "[grafana][method]" => "grafana_method"
             "[grafana][path]" => "grafana_path"
             "[grafana][status]" => "grafana_status"
@@ -92,6 +98,41 @@ logstashPipeline:
             "[grafana][start]" => "grafana_start"
             "[grafana][end]" => "grafana_end"
             "[grafana][step]" => "grafana_step"
+            "[grafana][direction]" => "grafana_direction"
+            "[grafana][maxLines]" => "grafana_max_lines"
+            "[grafana][supportingQueryType]" => "grafana_supporting_query_type"
+            "[grafana][fromAlert]" => "grafana_from_alert"
+            "[grafana][contentLength]" => "grafana_content_length"
+            "[grafana][contentEncoding]" => "grafana_content_encoding"
+            "[grafana][stage]" => "grafana_stage"
+            "[grafana][framesLength]" => "grafana_frames_length"
+            "[grafana][pluginVersion]" => "grafana_plugin_version"
+            "[grafana][status_source]" => "grafana_status_source"
+            "[grafana][statusSource]" => "grafana_status_source"
+            "[grafana][namespace]" => "grafana_namespace"
+            "[grafana][group]" => "grafana_group"
+            "[grafana][resource]" => "grafana_resource"
+            "[grafana][size]" => "grafana_size"
+            "[grafana][reason]" => "grafana_reason"
+            "[grafana][elapsed]" => "grafana_elapsed"
+            "[grafana][listRV]" => "grafana_list_rv"
+            "[grafana][key]" => "grafana_key"
+            "[grafana][expiration]" => "grafana_expiration"
+            "[grafana][sourceVersionAPI]" => "grafana_source_version_api"
+            "[grafana][targetVersionAPI]" => "grafana_target_version_api"
+            "[grafana][erroredConversionFunc]" => "grafana_errored_conversion_func"
+            "[grafana][dashboardUID]" => "grafana_dashboard_uid"
+            "[grafana][errorType]" => "grafana_error_type"
+            "[grafana][panelsLost]" => "grafana_panels_lost"
+            "[grafana][queriesLost]" => "grafana_queries_lost"
+            "[grafana][annotationsLost]" => "grafana_annotations_lost"
+            "[grafana][linksLost]" => "grafana_links_lost"
+            "[grafana][variablesLost]" => "grafana_variables_lost"
+            "[grafana][count]" => "grafana_count"
+            "[grafana][itemsProcessed]" => "grafana_items_processed"
+            "[grafana][UID]" => "grafana_uid"
+            "[grafana][deletionTimestamp]" => "grafana_deletion_timestamp"
+            "[grafana][resourceVersion]" => "grafana_resource_version"
             "[grafana][referer]" => "grafana_referer"
             "[grafana][handler]" => "grafana_handler"
             "[grafana][remote_addr]" => "grafana_remote_addr"
@@ -99,10 +140,25 @@ logstashPipeline:
           convert => {
             "grafana_user_id" => "integer"
             "grafana_org_id" => "integer"
+            "grafana_org_id_alt" => "integer"
             "grafana_status" => "integer"
             "grafana_time_ms" => "integer"
             "grafana_status_code" => "integer"
+            "grafana_size" => "integer"
+            "grafana_content_length" => "integer"
+            "grafana_max_lines" => "integer"
+            "grafana_frames_length" => "integer"
+            "grafana_count" => "integer"
+            "grafana_items_processed" => "integer"
+            "grafana_panels_lost" => "integer"
+            "grafana_queries_lost" => "integer"
+            "grafana_annotations_lost" => "integer"
+            "grafana_links_lost" => "integer"
+            "grafana_variables_lost" => "integer"
+            "grafana_from_alert" => "boolean"
           }
+          # Keep flattened fields for easier query in Kibana.
+          remove_field => ["grafana"]
         }
       }
 
@@ -131,6 +187,20 @@ logstashPipeline:
             }
             remove_tag => ["_loki_gateway_dissect_failure", "_loki_gateway_parse_failure", "_loki_gateway_grok_failure"]
           }
+
+          ruby {
+            code => '
+              req = event.get("loki_gateway_request")
+              if req.is_a?(String)
+                parts = req.split("?", 2)
+                event.set("loki_gateway_path", parts[0])
+                event.set("loki_gateway_query", parts[1]) if parts.length > 1
+              end
+
+              xff = event.get("loki_gateway_forwarded_for")
+              event.remove("loki_gateway_forwarded_for") if xff == "-"
+            '
+          }
         }
       }
 
@@ -153,10 +223,9 @@ logstashPipeline:
             "[prometheus][msg]" => "prometheus_msg"
             "[prometheus][err]" => "prometheus_err"
             "[prometheus][duration]" => "prometheus_duration"
-            "[prometheus][filename]" => "prometheus_filename"
-            "[prometheus][config]" => "prometheus_config"
-            "[prometheus][discovery]" => "prometheus_discovery"
           }
+          # Keep only the normalized top-level fields above.
+          remove_field => ["prometheus"]
         }
       }
 
