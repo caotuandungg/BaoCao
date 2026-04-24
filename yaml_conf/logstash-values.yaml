@@ -34,8 +34,8 @@ logstashPipeline:
       kafka {
         bootstrap_servers => "my-cluster-kafka-bootstrap.kafka-dung.svc:9092"
         topics => ["dung-logs-topic"]
-        group_id => "logstash-consumer-group-2"
-        auto_offset_reset => "latest"
+        group_id => "logstash-consumer-group-4"
+        auto_offset_reset => "earliest"
         codec => json
       }
     }
@@ -163,29 +163,64 @@ logstashPipeline:
       }
 
       if [kubernetes][pod_name] =~ /^loki-gateway/ and [kubernetes][container_name] == "nginx" {
-        dissect {
-          mapping => {
-            "message" => '%{loki_gateway_remote_addr} - %{loki_gateway_remote_user} [%{loki_gateway_time}]  %{loki_gateway_status} "%{loki_gateway_method} %{loki_gateway_request} HTTP/%{loki_gateway_http_version}" %{loki_gateway_bytes} "%{loki_gateway_referrer}" "%{loki_gateway_user_agent}" "%{loki_gateway_forwarded_for}"'
-          }
-          tag_on_failure => ["_loki_gateway_dissect_failure"]
+        mutate {
+          add_field => { "[@metadata][loki_gateway_parsed]" => "false" }
         }
 
-        if "_loki_gateway_dissect_failure" in [tags] {
+        # Parse nginx access log format from loki-gateway.
+        if [message] =~ /^[0-9a-fA-F\.:]+ - / {
           dissect {
             mapping => {
-              "message" => '%{loki_gateway_remote_addr} - %{loki_gateway_remote_user} [%{loki_gateway_time}]  %{loki_gateway_status} "%{loki_gateway_method} %{loki_gateway_request} HTTP/%{loki_gateway_http_version}" %{loki_gateway_bytes} "%{loki_gateway_referrer}" "%{loki_gateway_user_agent}" -'
+              "message" => '%{loki_gateway_remote_addr} - %{loki_gateway_remote_user} [%{loki_gateway_time}]  %{loki_gateway_status} "%{loki_gateway_method} %{loki_gateway_request} HTTP/%{loki_gateway_http_version}" %{loki_gateway_bytes} "%{loki_gateway_referrer}" "%{loki_gateway_user_agent}" "%{loki_gateway_forwarded_for}"'
             }
-            tag_on_failure => ["_loki_gateway_parse_failure"]
+            tag_on_failure => ["_loki_gateway_dissect_failure"]
+          }
+
+          if "_loki_gateway_dissect_failure" in [tags] {
+            dissect {
+              mapping => {
+                "message" => '%{loki_gateway_remote_addr} - %{loki_gateway_remote_user} [%{loki_gateway_time}]  %{loki_gateway_status} "%{loki_gateway_method} %{loki_gateway_request} HTTP/%{loki_gateway_http_version}" %{loki_gateway_bytes} "%{loki_gateway_referrer}" "%{loki_gateway_user_agent}" -'
+              }
+              tag_on_failure => ["_loki_gateway_parse_failure"]
+            }
+          }
+
+          if !("_loki_gateway_dissect_failure" in [tags]) or !("_loki_gateway_parse_failure" in [tags]) {
+            mutate {
+              replace => { "[@metadata][loki_gateway_parsed]" => "true" }
+            }
           }
         }
 
-        if !("_loki_gateway_dissect_failure" in [tags]) or !("_loki_gateway_parse_failure" in [tags]) {
+        # Parse nginx error log format from loki-gateway.
+        if [@metadata][loki_gateway_parsed] != "true" and [message] =~ /^\d{4}\/\d{2}\/\d{2}\s/ {
+          grok {
+            match => {
+              "message" => [
+                '^%{YEAR}/%{MONTHNUM}/%{MONTHDAY} %{TIME:loki_gateway_time} \[%{LOGLEVEL:loki_gateway_level}\] %{NUMBER:loki_gateway_pid}#%{NUMBER:loki_gateway_tid}: \*%{NUMBER:loki_gateway_connection_id} %{GREEDYDATA:loki_gateway_error_detail}, client: %{IPORHOST:loki_gateway_remote_addr}, server: %{DATA:loki_gateway_server_name}, request: "%{WORD:loki_gateway_method} %{DATA:loki_gateway_request} HTTP/%{NUMBER:loki_gateway_http_version}", upstream: "%{URI:loki_gateway_upstream}", host: "%{DATA:loki_gateway_host}"$',
+                '^%{YEAR}/%{MONTHNUM}/%{MONTHDAY} %{TIME:loki_gateway_time} \[%{LOGLEVEL:loki_gateway_level}\] %{NUMBER:loki_gateway_pid}#%{NUMBER:loki_gateway_tid}: \*%{NUMBER:loki_gateway_connection_id} %{GREEDYDATA:loki_gateway_error_detail}, client: %{IPORHOST:loki_gateway_remote_addr}, server: %{DATA:loki_gateway_server_name}, request: "%{WORD:loki_gateway_method} %{DATA:loki_gateway_request} HTTP/%{NUMBER:loki_gateway_http_version}", host: "%{DATA:loki_gateway_host}"$'
+              ]
+            }
+            tag_on_failure => ["_loki_gateway_error_parse_failure"]
+          }
+
+          if !("_loki_gateway_error_parse_failure" in [tags]) {
+            mutate {
+              replace => { "[@metadata][loki_gateway_parsed]" => "true" }
+            }
+          }
+        }
+
+        if [@metadata][loki_gateway_parsed] == "true" {
           mutate {
             convert => {
               "loki_gateway_status" => "integer"
               "loki_gateway_bytes" => "integer"
+              "loki_gateway_pid" => "integer"
+              "loki_gateway_tid" => "integer"
+              "loki_gateway_connection_id" => "integer"
             }
-            remove_tag => ["_loki_gateway_dissect_failure", "_loki_gateway_parse_failure", "_loki_gateway_grok_failure"]
+            remove_tag => ["_loki_gateway_dissect_failure", "_loki_gateway_parse_failure", "_loki_gateway_error_parse_failure", "_loki_gateway_grok_failure"]
           }
 
           ruby {
@@ -201,6 +236,10 @@ logstashPipeline:
               event.remove("loki_gateway_forwarded_for") if xff == "-"
             '
           }
+        }
+
+        mutate {
+          remove_field => ["[@metadata][loki_gateway_parsed]"]
         }
       }
 
@@ -226,6 +265,554 @@ logstashPipeline:
           }
           # Keep only the normalized top-level fields above.
           remove_field => ["prometheus"]
+        }
+      }
+
+      if [kubernetes][namespace_name] == "kube-system" and [kubernetes][pod_name] =~ /^cilium-envoy(-|$)/ and [kubernetes][container_name] == "cilium-envoy" {
+        mutate {
+          add_field => {
+            "service" => "cilium-envoy"
+            "service_name" => "cilium-envoy"
+            "event_dataset" => "cilium.envoy"
+            "[@metadata][cilium_envoy_parsed]" => "false"
+          }
+        }
+
+        if [message] =~ "^{.*}$" {
+          json {
+            source => "message"
+            target => "envoy_json"
+            tag_on_failure => ["_cilium_envoy_json_parse_failure"]
+          }
+          if !("_cilium_envoy_json_parse_failure" in [tags]) {
+            mutate {
+              replace => { "[@metadata][cilium_envoy_parsed]" => "true" }
+            }
+          }
+        }
+
+        if [@metadata][cilium_envoy_parsed] != "true" {
+          grok {
+            match => {
+              "message" => [
+                '^\[%{TIMESTAMP_ISO8601:envoy_ts}\]\[%{NUMBER:envoy_thread}\]\[%{LOGLEVEL:envoy_level}\]\[%{DATA:envoy_module}\] \[%{DATA:envoy_source_file}:%{NUMBER:envoy_source_line}\] %{GREEDYDATA:envoy_message}$',
+                '^\[%{TIMESTAMP_ISO8601:envoy_ts}\]\[%{NUMBER:envoy_thread}\]\[%{LOGLEVEL:envoy_level}\]\[%{DATA:envoy_module}\] %{GREEDYDATA:envoy_message}$',
+                '^\[%{TIMESTAMP_ISO8601:envoy_ts}\]\[%{LOGLEVEL:envoy_level}\]\[%{DATA:envoy_module}\] %{GREEDYDATA:envoy_message}$'
+              ]
+            }
+            tag_on_failure => ["_cilium_envoy_parse_failure"]
+          }
+
+          if !("_cilium_envoy_parse_failure" in [tags]) {
+            date {
+              match => ["envoy_ts", "yyyy-MM-dd HH:mm:ss.SSS", "yyyy-MM-dd HH:mm:ss"]
+              target => "@timestamp"
+              timezone => "UTC"
+            }
+
+            mutate {
+              convert => {
+                "envoy_thread" => "integer"
+                "envoy_source_line" => "integer"
+              }
+              remove_tag => ["_dateparsefailure"]
+              replace => { "[@metadata][cilium_envoy_parsed]" => "true" }
+            }
+          }
+        }
+
+        if [@metadata][cilium_envoy_parsed] != "true" {
+          kv {
+            source => "message"
+            target => "envoy_kv"
+            field_split_pattern => "\s+"
+            value_split => "="
+            trim_value => "\""
+            whitespace => "lenient"
+            tag_on_failure => ["_cilium_envoy_kv_parse_failure"]
+          }
+
+          mutate {
+            rename => {
+              "[envoy_kv][level]" => "envoy_level"
+              "[envoy_kv][msg]" => "envoy_message"
+              "[envoy_kv][error]" => "envoy_error"
+              "[envoy_kv][path]" => "envoy_path"
+              "[envoy_kv][method]" => "envoy_method"
+              "[envoy_kv][authority]" => "envoy_authority"
+              "[envoy_kv][response_code]" => "envoy_response_code"
+              "[envoy_kv][duration]" => "envoy_duration"
+              "[envoy_kv][upstream_cluster]" => "envoy_upstream_cluster"
+              "[envoy_kv][upstream_host]" => "envoy_upstream_host"
+            }
+            convert => {
+              "envoy_response_code" => "integer"
+            }
+          }
+        }
+
+        if [envoy_message] =~ /^Stream/ {
+          grok {
+            match => {
+              "envoy_message" => '^Stream%{WORD:envoy_xds_stream} gRPC config stream to %{DATA:envoy_xds_target} closed: %{NUMBER:envoy_error_code}, %{GREEDYDATA:envoy_error_reason}$'
+            }
+            tag_on_failure => []
+          }
+          mutate {
+            convert => {
+              "envoy_error_code" => "integer"
+            }
+          }
+        }
+
+        if [envoy_message] =~ /^cds: response indicates/ {
+          grok {
+            match => {
+              "envoy_message" => '^cds: response indicates %{NUMBER:envoy_cds_added} added/updated cluster\(s\), %{NUMBER:envoy_cds_removed} removed cluster\(s\); applying changes$'
+            }
+            tag_on_failure => []
+          }
+          mutate {
+            convert => {
+              "envoy_cds_added" => "integer"
+              "envoy_cds_removed" => "integer"
+            }
+          }
+        }
+
+        if [envoy_message] =~ /^cds: added\/updated/ {
+          grok {
+            match => {
+              "envoy_message" => '^cds: added/updated %{NUMBER:envoy_cds_applied_added} cluster\(s\) \(skipped %{NUMBER:envoy_cds_skipped_unmodified} unmodified cluster\(s\)\); removed %{NUMBER:envoy_cds_applied_removed} cluster\(s\)$'
+            }
+            tag_on_failure => []
+          }
+          mutate {
+            convert => {
+              "envoy_cds_applied_added" => "integer"
+              "envoy_cds_skipped_unmodified" => "integer"
+              "envoy_cds_applied_removed" => "integer"
+            }
+          }
+        }
+
+        if [envoy_message] =~ /^loading / {
+          grok {
+            match => {
+              "envoy_message" => '^loading %{NUMBER:envoy_loading_count} %{DATA:envoy_loading_kind}$'
+            }
+            tag_on_failure => []
+          }
+          mutate {
+            convert => {
+              "envoy_loading_count" => "integer"
+            }
+          }
+        }
+
+        if [envoy_message] =~ /^Starting admin HTTP server at / {
+          grok {
+            match => {
+              "envoy_message" => '^Starting admin HTTP server at %{GREEDYDATA:envoy_admin_http_socket}$'
+            }
+            tag_on_failure => []
+          }
+        }
+
+        if [envoy_message] =~ /^admin address: / {
+          grok {
+            match => {
+              "envoy_message" => '^admin address: %{GREEDYDATA:envoy_admin_address}$'
+            }
+            tag_on_failure => []
+          }
+        }
+
+        mutate {
+          remove_field => ["[@metadata][cilium_envoy_parsed]"]
+        }
+      }
+
+      if [kubernetes][namespace_name] == "kube-system" and [kubernetes][pod_name] =~ /^cilium-/ and !([kubernetes][pod_name] =~ /^cilium-envoy(-|$)/) {
+        if [kubernetes][container_name] == "cilium-agent" {
+          mutate {
+            add_field => {
+              "service" => "cilium-agent"
+              "service_name" => "cilium-agent"
+              "event_dataset" => "cilium.agent"
+            }
+          }
+        } else {
+          mutate {
+            add_field => {
+              "service" => "cilium"
+              "service_name" => "cilium"
+              "event_dataset" => "cilium.logs"
+            }
+          }
+        }
+
+        if [message] =~ "^{.*}$" {
+          json {
+            source => "message"
+            target => "cilium_json"
+            tag_on_failure => ["_cilium_json_parse_failure"]
+          }
+        }
+
+        if [message] =~ /^time=/ {
+          dissect {
+            mapping => {
+              "message" => 'time=%{cilium_time} level=%{cilium_level} msg="%{cilium_message}" %{cilium_kv_tail}'
+            }
+            tag_on_failure => ["_cilium_logfmt_header_parse_failure"]
+          }
+
+          if "_cilium_logfmt_header_parse_failure" in [tags] {
+            dissect {
+              mapping => {
+                "message" => 'time=%{cilium_time} level=%{cilium_level} msg="%{cilium_message}"'
+              }
+              tag_on_failure => []
+            }
+          }
+
+          if [cilium_kv_tail] {
+            kv {
+              source => "cilium_kv_tail"
+              target => "cilium_kv"
+              field_split => " "
+              value_split => "="
+              trim_value => "\""
+              whitespace => "lenient"
+              tag_on_failure => ["_cilium_kv_parse_failure"]
+            }
+          }
+
+          mutate {
+            rename => {
+              "[cilium_kv][module]" => "cilium_module"
+              "[cilium_kv][subsys]" => "cilium_subsys"
+              "[cilium_kv][containerID]" => "cilium_container_id"
+              "[cilium_kv][containerInterface]" => "cilium_container_interface"
+              "[cilium_kv][endpointID]" => "cilium_endpoint_id"
+              "[cilium_kv][k8sPodName]" => "cilium_k8s_pod_name"
+              "[cilium_kv][k8sNamespace]" => "cilium_k8s_namespace"
+              "[cilium_kv][k8sUID]" => "cilium_k8s_uid"
+              "[cilium_kv][ciliumEndpointName]" => "cilium_endpoint_name"
+              "[cilium_kv][desiredPolicyRevision]" => "cilium_desired_policy_revision"
+              "[cilium_kv][datapathPolicyRevision]" => "cilium_datapath_policy_revision"
+              "[cilium_kv][identity]" => "cilium_identity"
+              "[cilium_kv][new-identity]" => "cilium_new_identity"
+              "[cilium_kv][old-identity]" => "cilium_old_identity"
+              "[cilium_kv][ipv4]" => "cilium_ipv4"
+              "[cilium_kv][ipv6]" => "cilium_ipv6"
+              "[cilium_kv][device]" => "cilium_device"
+              "[cilium_kv][progName]" => "cilium_prog_name"
+              "[cilium_kv][sync-build]" => "cilium_sync_build"
+              "[cilium_kv][first]" => "cilium_gc_first"
+              "[cilium_kv][ports]" => "cilium_ports_raw"
+              "[cilium_kv][addresses]" => "cilium_addresses"
+              "[cilium_kv][addressing]" => "cilium_addressing"
+              "[cilium_kv][datapathConfiguration]" => "cilium_datapath_configuration"
+              "[cilium_kv][labels]" => "cilium_labels"
+              "[cilium_kv][interface]" => "cilium_interface"
+            }
+            convert => {
+              "cilium_endpoint_id" => "integer"
+              "cilium_desired_policy_revision" => "integer"
+              "cilium_datapath_policy_revision" => "integer"
+              "cilium_identity" => "integer"
+              "cilium_new_identity" => "integer"
+              "cilium_sync_build" => "boolean"
+              "cilium_gc_first" => "boolean"
+            }
+          }
+
+          date {
+            match => ["cilium_time", "ISO8601"]
+            target => "@timestamp"
+            timezone => "UTC"
+          }
+
+          ruby {
+            code => '
+              ports = event.get("cilium_ports_raw")
+              if ports.is_a?(String)
+                stripped = ports.gsub(/^\[/, "").gsub(/\]$/, "")
+                if stripped.empty?
+                  event.set("cilium_ports", [])
+                else
+                  list = stripped.split(",").map { |p| p.strip }.reject(&:empty?).map { |p| p =~ /^\d+$/ ? p.to_i : p }
+                  event.set("cilium_ports", list)
+                end
+              end
+
+              pod_name = event.get("cilium_k8s_pod_name")
+              if pod_name.is_a?(String) && pod_name.include?("/")
+                ns, pod = pod_name.split("/", 2)
+                event.set("cilium_workload_namespace", ns) if ns && !ns.empty?
+                event.set("cilium_workload_pod", pod) if pod && !pod.empty?
+              end
+
+              cep_name = event.get("cilium_endpoint_name")
+              if cep_name.is_a?(String) && cep_name.include?("/")
+                ns, pod = cep_name.split("/", 2)
+                event.set("cilium_endpoint_namespace", ns) if ns && !ns.empty?
+                event.set("cilium_endpoint_pod", pod) if pod && !pod.empty?
+              end
+
+              ["cilium_ipv6", "cilium_container_interface", "cilium_old_identity", "cilium_labels"].each do |k|
+                v = event.get(k)
+                event.remove(k) if v == ""
+              end
+            '
+          }
+
+          mutate {
+            remove_field => [
+              "cilium_kv",
+              "cilium_ports_raw",
+              "cilium_kv_tail"
+            ]
+            remove_tag => [
+              "_cilium_logfmt_header_parse_failure",
+              "_cilium_kv_parse_failure",
+              "_cilium_json_parse_failure"
+            ]
+          }
+        }
+      }
+
+      if [kubernetes][namespace_name] == "kube-system" and [kubernetes][pod_name] =~ /^openstack-cinder-csi-nodeplugin-/ {
+        mutate {
+          add_field => {
+            "service" => "openstack-cinder-csi-nodeplugin"
+            "service_name" => "openstack-cinder-csi-nodeplugin"
+            "event_dataset" => "openstack.cinder.csi.nodeplugin"
+          }
+        }
+
+        grok {
+          match => {
+            "message" => [
+              '^(?<cinder_severity>[IWEF])(?<cinder_month>\d{2})(?<cinder_day>\d{2}) %{TIME:cinder_log_time}\s+%{NUMBER:cinder_thread}\s+%{DATA:cinder_source_file}:%{NUMBER:cinder_source_line}\] "(?<cinder_event>[^"]+)"(?: %{GREEDYDATA:cinder_kv_text})?$',
+              '^(?<cinder_severity>[IWEF])(?<cinder_month>\d{2})(?<cinder_day>\d{2}) %{TIME:cinder_log_time}\s+%{NUMBER:cinder_thread}\s+%{DATA:cinder_source_file}:%{NUMBER:cinder_source_line}\] %{GREEDYDATA:cinder_message}$',
+              '^(?<cinder_year>\d{4})/(?<cinder_month>\d{2})/(?<cinder_day>\d{2}) %{TIME:cinder_log_time} %{GREEDYDATA:cinder_message}$'
+            ]
+          }
+          tag_on_failure => ["_cinder_klog_parse_failure"]
+        }
+
+        ruby {
+          code => '
+            msg = event.get("message")
+            if msg.is_a?(String)
+              m = msg.match(/^([IWEF])(\d{2})(\d{2})\s+(\d{2}:\d{2}:\d{2}\.\d+)\s+(\d+)\s+([^:]+):(\d+)\]\s+(.*)$/)
+              if m
+                event.set("cinder_severity", m[1]) unless event.get("cinder_severity")
+                event.set("cinder_month", m[2]) unless event.get("cinder_month")
+                event.set("cinder_day", m[3]) unless event.get("cinder_day")
+                event.set("cinder_log_time", m[4]) unless event.get("cinder_log_time")
+                event.set("cinder_thread", m[5]) unless event.get("cinder_thread")
+                event.set("cinder_source_file", m[6]) unless event.get("cinder_source_file")
+                event.set("cinder_source_line", m[7]) unless event.get("cinder_source_line")
+
+                tail = m[8]
+                if tail.start_with?("\"")
+                  qm = tail.match(/^"([^"]+)"(?:\s+(.*))?$/)
+                  if qm
+                    event.set("cinder_event", qm[1]) unless event.get("cinder_event")
+                    event.set("cinder_kv_text", qm[2]) if qm[2] && event.get("cinder_kv_text").nil?
+                  else
+                    event.set("cinder_message", tail) unless event.get("cinder_message")
+                  end
+                else
+                  event.set("cinder_message", tail) unless event.get("cinder_message")
+                end
+              end
+            end
+          '
+        }
+
+        if [cinder_event] {
+          mutate {
+            add_field => { "cinder_message" => "%{cinder_event}" }
+          }
+        }
+
+        if [cinder_kv_text] {
+          kv {
+            source => "cinder_kv_text"
+            target => "cinder_kv"
+            field_split_pattern => "\s+"
+            value_split => "="
+            trim_value => "\""
+            whitespace => "lenient"
+            tag_on_failure => ["_cinder_kv_parse_failure"]
+          }
+        } else {
+          kv {
+            source => "message"
+            target => "cinder_kv"
+            field_split_pattern => "\s+"
+            value_split => "="
+            trim_value => "\""
+            whitespace => "lenient"
+            tag_on_failure => ["_cinder_kv_parse_failure"]
+          }
+        }
+
+        mutate {
+          convert => {
+            "cinder_thread" => "integer"
+            "cinder_source_line" => "integer"
+          }
+          rename => {
+            "[cinder_kv][version]" => "cinder_version"
+            "[cinder_kv][mode]" => "cinder_mode"
+            "[cinder_kv][request]" => "cinder_request"
+            "[cinder_kv][status]" => "cinder_status"
+            "[cinder_kv][driver]" => "cinder_driver"
+            "[cinder_kv][address]" => "cinder_address"
+            "[cinder_kv][csiAddress]" => "cinder_csi_address"
+            "[cinder_kv][csiDriverName]" => "cinder_csi_driver_name"
+            "[cinder_kv][socketPath]" => "cinder_socket_path"
+          }
+        }
+
+        if [message] =~ "^{.*}$" {
+          json {
+            source => "message"
+            target => "cinder_json"
+            tag_on_failure => ["_cinder_json_parse_failure"]
+          }
+        }
+
+        if [cinder_message] =~ /^Disk "/ {
+          grok {
+            match => {
+              "cinder_message" => '^Disk "%{DATA:cinder_disk_path}" appears to be unformatted, attempting to format as type: "%{DATA:cinder_fs_type}" with options: \[%{DATA:cinder_format_options}\]$'
+            }
+            tag_on_failure => []
+          }
+        }
+
+        if [cinder_message] =~ /^Disk successfully formatted \(mkfs\):/ {
+          grok {
+            match => {
+              "cinder_message" => '^Disk successfully formatted \(mkfs\): %{DATA:cinder_mkfs_fs_type} - %{DATA:cinder_disk_path} %{GREEDYDATA:cinder_mount_path}$'
+            }
+            tag_on_failure => []
+          }
+        }
+
+        if [cinder_message] =~ /^Device / {
+          grok {
+            match => {
+              "cinder_message" => '^Device %{DATA:cinder_device_path} resized successfully$'
+            }
+            tag_on_failure => []
+          }
+        }
+
+        if [cinder_message] =~ /^Command env: \(/ {
+          grok {
+            match => {
+              "cinder_message" => '^Command env: \(%{GREEDYDATA:cinder_command_env}\)$'
+            }
+            tag_on_failure => []
+          }
+
+          if [cinder_command_env] {
+            kv {
+              source => "cinder_command_env"
+              target => "cinder_command_env_kv"
+              field_split_pattern => ",\\s*"
+              value_split => "="
+              whitespace => "lenient"
+              tag_on_failure => []
+            }
+            mutate {
+              rename => {
+                "[cinder_command_env_kv][log-file]" => "cinder_command_log_file"
+                "[cinder_command_env_kv][also-stdout]" => "cinder_command_also_stdout"
+                "[cinder_command_env_kv][redirect-stderr]" => "cinder_command_redirect_stderr"
+              }
+              convert => {
+                "cinder_command_also_stdout" => "boolean"
+                "cinder_command_redirect_stderr" => "boolean"
+              }
+            }
+          }
+        }
+
+        if [cinder_message] =~ /^Executable path: / {
+          grok {
+            match => {
+              "cinder_message" => '^Executable path: %{GREEDYDATA:cinder_executable_path}$'
+            }
+            tag_on_failure => []
+          }
+        }
+
+        if [cinder_message] =~ /^Run from directory: / {
+          grok {
+            match => {
+              "cinder_message" => '^Run from directory: %{GREEDYDATA:cinder_run_directory}$'
+            }
+            tag_on_failure => []
+          }
+        }
+
+        if [cinder_message] =~ /^Args \(comma-delimited\): / {
+          grok {
+            match => {
+              "cinder_message" => '^Args \(comma-delimited\): %{GREEDYDATA:cinder_args_csv}$'
+            }
+            tag_on_failure => []
+          }
+        }
+
+        if [cinder_status] =~ /plugin_registered:(true|false)/ {
+          grok {
+            match => {
+              "cinder_status" => 'plugin_registered:%{WORD:cinder_plugin_registered_raw}'
+            }
+            tag_on_failure => []
+          }
+          mutate {
+            convert => {
+              "cinder_plugin_registered_raw" => "boolean"
+            }
+            rename => {
+              "cinder_plugin_registered_raw" => "cinder_plugin_registered"
+            }
+          }
+        }
+
+        ruby {
+          code => '
+            sev = event.get("cinder_severity")
+            if sev
+              level = {"I" => "info", "W" => "warning", "E" => "error", "F" => "fatal"}[sev]
+              event.set("cinder_level", level) if level
+            end
+          '
+        }
+
+        mutate {
+          remove_field => [
+            "cinder_event",
+            "cinder_kv_text",
+            "cinder_command_env",
+            "cinder_command_env_kv"
+          ]
+          remove_tag => [
+            "_cinder_klog_parse_failure",
+            "_cinder_kv_parse_failure",
+            "_cinder_json_parse_failure"
+          ]
         }
       }
 
@@ -269,13 +856,100 @@ logstashPipeline:
         '
       }
 
+      if [kind] == "Event" or [involvedObject][kind] {
+        mutate {
+          add_field => {
+            "service" => "kubernetes-events"
+            "service_name" => "kubernetes-events"
+            "event_dataset" => "kubernetes.events"
+          }
+          rename => {
+            "[metadata][namespace]" => "k8s_event_namespace"
+            "[type]" => "k8s_event_type"
+            "[reason]" => "k8s_event_reason"
+            "[message]" => "k8s_event_message"
+            "[count]" => "k8s_event_count"
+            "[involvedObject][kind]" => "k8s_event_object_kind"
+            "[involvedObject][name]" => "k8s_event_object_name"
+            "[involvedObject][namespace]" => "k8s_event_object_namespace"
+            "[involvedObject][fieldPath]" => "k8s_event_object_field_path"
+            "[source][component]" => "k8s_event_source_component"
+            "[source][host]" => "k8s_event_source_host"
+            "[reportingComponent]" => "k8s_event_reporting_component"
+            "[reportingInstance]" => "k8s_event_reporting_instance"
+            "[firstTimestamp]" => "k8s_event_first_timestamp"
+            "[lastTimestamp]" => "k8s_event_last_timestamp"
+            "[eventTime]" => "k8s_event_event_time"
+          }
+          convert => {
+            "k8s_event_count" => "integer"
+          }
+        }
+
+        ruby {
+          code => '
+            ns = event.get("k8s_event_namespace")
+            obj_ns = event.get("k8s_event_object_namespace")
+            obj_kind = event.get("k8s_event_object_kind")
+            obj_name = event.get("k8s_event_object_name")
+
+            if ns.nil? && obj_ns.is_a?(String) && !obj_ns.empty?
+              event.set("k8s_event_namespace", obj_ns)
+            end
+
+            if obj_kind.is_a?(String) && !obj_kind.empty? && obj_name.is_a?(String) && !obj_name.empty?
+              event.set("k8s_event_object", "#{obj_kind}/#{obj_name}")
+            elsif obj_kind.is_a?(String) && !obj_kind.empty?
+              event.set("k8s_event_object", obj_kind)
+            end
+
+            last_seen = event.get("k8s_event_last_timestamp") || event.get("k8s_event_event_time") || event.get("k8s_event_first_timestamp")
+            event.set("k8s_event_last_seen", last_seen) if last_seen
+          '
+        }
+
+        if [k8s_event_last_seen] {
+          date {
+            match => ["k8s_event_last_seen", "ISO8601"]
+            target => "@timestamp"
+            timezone => "UTC"
+          }
+        }
+
+        mutate {
+          remove_field => [
+            "metadata",
+            "involvedObject",
+            "source"
+          ]
+        }
+      }
+
       ruby {
         code => '
           service = event.get("service")
+          ns = event.get("[kubernetes][namespace_name]") || event.get("namespace_name")
+          pod = event.get("[kubernetes][pod_name]") || event.get("pod_name")
+          container = event.get("[kubernetes][container_name]") || event.get("container_name")
+          raw = event.get("event_original")
+          raw = raw.to_s if raw
 
           route = nil
+          raw_cilium_envoy = raw && raw.match?(/"namespace_name":"kube-system".*"pod_name":"cilium-envoy(?:-[^"]+)?"/)
+          raw_cilium = raw && raw.match?(/"namespace_name":"kube-system".*"pod_name":"cilium-[^"]+"/) && !(raw && raw.match?(/"pod_name":"cilium-envoy(?:-[^"]+)?"/))
+          raw_cinder = raw && raw.match?(/"namespace_name":"kube-system".*"pod_name":"openstack-cinder-csi-nodeplugin-[^"]+"/)
+          raw_k8s_event = raw && raw.match?(/"kind":"Event"/)
+          is_k8s_event = (event.get("kind") == "Event") || !event.get("[involvedObject][kind]").nil? || raw_k8s_event
 
-          if ["frontend", "backend", "database", "webserver"].include?(service)
+          if is_k8s_event
+            route = "wk03-k8s-events"
+          elsif (ns == "kube-system" && pod.is_a?(String) && pod.start_with?("cilium-envoy")) || raw_cilium_envoy
+            route = "wk03-cilium-envoy"
+          elsif (ns == "kube-system" && pod.is_a?(String) && pod.start_with?("cilium-") && !pod.start_with?("cilium-envoy")) || raw_cilium
+            route = "wk03-cilium"
+          elsif (ns == "kube-system" && pod.is_a?(String) && pod.start_with?("openstack-cinder-csi-nodeplugin-")) || raw_cinder
+            route = "wk03-cinder-csi-nodeplugin"
+          elsif ["frontend", "backend", "database", "webserver"].include?(service)
             route = service
           else
             route = "wk03-logs"
@@ -340,6 +1014,42 @@ logstashPipeline:
           password => "1xNIfTEXaH0MsbQN"
           ssl_certificate_verification => false
           index => "wk03-logs-write"
+        }
+      }
+      else if [@metadata][route_target] == "wk03-k8s-events" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1xNIfTEXaH0MsbQN"
+          ssl_certificate_verification => false
+          index => "wk03-k8s-events-write"
+        }
+      }
+      else if [@metadata][route_target] == "wk03-cilium-envoy" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1xNIfTEXaH0MsbQN"
+          ssl_certificate_verification => false
+          index => "wk03-cilium-envoy-write"
+        }
+      }
+      else if [@metadata][route_target] == "wk03-cilium" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1xNIfTEXaH0MsbQN"
+          ssl_certificate_verification => false
+          index => "wk03-cilium-write"
+        }
+      }
+      else if [@metadata][route_target] == "wk03-cinder-csi-nodeplugin" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1xNIfTEXaH0MsbQN"
+          ssl_certificate_verification => false
+          index => "wk03-cinder-csi-nodeplugin-write"
         }
       }
     }

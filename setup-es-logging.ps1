@@ -279,6 +279,137 @@ $files = @{
   "priority": 400
 }
 '@
+    "wk03-cilium-envoy-template.json" = @'
+{
+  "index_patterns": ["wk03-cilium-envoy-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1,
+      "index.lifecycle.name": "logs-lab-policy",
+      "index.lifecycle.rollover_alias": "wk03-cilium-envoy-write"
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "message": { "type": "text" },
+        "stream": { "type": "keyword", "ignore_above": 256 },
+        "logtag": { "type": "keyword", "ignore_above": 256 },
+        "event_original": { "type": "text" },
+        "kubernetes": {
+          "properties": {
+            "namespace_name": { "type": "keyword" },
+            "pod_name": { "type": "keyword" },
+            "container_name": { "type": "keyword" },
+            "host": { "type": "keyword" }
+          }
+        }
+      }
+    }
+  },
+  "priority": 460
+}
+'@
+    "wk03-cilium-template.json" = @'
+{
+  "index_patterns": ["wk03-cilium-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1,
+      "index.lifecycle.name": "logs-lab-policy",
+      "index.lifecycle.rollover_alias": "wk03-cilium-write"
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "message": { "type": "text" },
+        "stream": { "type": "keyword", "ignore_above": 256 },
+        "logtag": { "type": "keyword", "ignore_above": 256 },
+        "event_original": { "type": "text" },
+        "kubernetes": {
+          "properties": {
+            "namespace_name": { "type": "keyword" },
+            "pod_name": { "type": "keyword" },
+            "container_name": { "type": "keyword" },
+            "host": { "type": "keyword" }
+          }
+        }
+      }
+    }
+  },
+  "priority": 450
+}
+'@
+    "wk03-cinder-csi-nodeplugin-template.json" = @'
+{
+  "index_patterns": ["wk03-cinder-csi-nodeplugin-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1,
+      "index.lifecycle.name": "logs-lab-policy",
+      "index.lifecycle.rollover_alias": "wk03-cinder-csi-nodeplugin-write"
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "message": { "type": "text" },
+        "stream": { "type": "keyword", "ignore_above": 256 },
+        "logtag": { "type": "keyword", "ignore_above": 256 },
+        "event_original": { "type": "text" },
+        "kubernetes": {
+          "properties": {
+            "namespace_name": { "type": "keyword" },
+            "pod_name": { "type": "keyword" },
+            "container_name": { "type": "keyword" },
+            "host": { "type": "keyword" }
+          }
+        }
+      }
+    }
+  },
+  "priority": 450
+}
+'@
+    "wk03-k8s-events-template.json" = @'
+{
+  "index_patterns": ["wk03-k8s-events-*"],
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1,
+      "index.lifecycle.name": "logs-lab-policy",
+      "index.lifecycle.rollover_alias": "wk03-k8s-events-write"
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "kind": { "type": "keyword", "ignore_above": 256 },
+        "reason": { "type": "keyword", "ignore_above": 256 },
+        "type": { "type": "keyword", "ignore_above": 256 },
+        "message": { "type": "text" },
+        "event_original": { "type": "text" },
+        "involvedObject": {
+          "properties": {
+            "kind": { "type": "keyword", "ignore_above": 256 },
+            "namespace": { "type": "keyword", "ignore_above": 256 },
+            "name": { "type": "keyword", "ignore_above": 256 },
+            "apiVersion": { "type": "keyword", "ignore_above": 256 }
+          }
+        },
+        "reportingComponent": { "type": "keyword", "ignore_above": 256 },
+        "reportingInstance": { "type": "keyword", "ignore_above": 256 }
+      }
+    }
+  },
+  "priority": 455
+}
+'@
     "dung-fe-bootstrap.json" = @'
 {
   "aliases": {
@@ -324,6 +455,42 @@ $files = @{
   }
 }
 '@
+    "wk03-cilium-envoy-bootstrap.json" = @'
+{
+  "aliases": {
+    "wk03-cilium-envoy-write": {
+      "is_write_index": true
+    }
+  }
+}
+'@
+    "wk03-cilium-bootstrap.json" = @'
+{
+  "aliases": {
+    "wk03-cilium-write": {
+      "is_write_index": true
+    }
+  }
+}
+'@
+    "wk03-cinder-csi-nodeplugin-bootstrap.json" = @'
+{
+  "aliases": {
+    "wk03-cinder-csi-nodeplugin-write": {
+      "is_write_index": true
+    }
+  }
+}
+'@
+    "wk03-k8s-events-bootstrap.json" = @'
+{
+  "aliases": {
+    "wk03-k8s-events-write": {
+      "is_write_index": true
+    }
+  }
+}
+'@
 }
 
 
@@ -344,6 +511,10 @@ try {
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-db-template" -FilePath (Join-Path $tempDir "dung-db-template.json")
     Invoke-CurlJson -Method PUT -Path "/_index_template/dung-web-template" -FilePath (Join-Path $tempDir "dung-web-template.json")
     Invoke-CurlJson -Method PUT -Path "/_index_template/wk03-logs-template" -FilePath (Join-Path $tempDir "wk03-logs-template.json")
+    Invoke-CurlJson -Method PUT -Path "/_index_template/wk03-cilium-envoy-template" -FilePath (Join-Path $tempDir "wk03-cilium-envoy-template.json")
+    Invoke-CurlJson -Method PUT -Path "/_index_template/wk03-cilium-template" -FilePath (Join-Path $tempDir "wk03-cilium-template.json")
+    Invoke-CurlJson -Method PUT -Path "/_index_template/wk03-cinder-csi-nodeplugin-template" -FilePath (Join-Path $tempDir "wk03-cinder-csi-nodeplugin-template.json")
+    Invoke-CurlJson -Method PUT -Path "/_index_template/wk03-k8s-events-template" -FilePath (Join-Path $tempDir "wk03-k8s-events-template.json")
     
     # 3. Khởi tạo các Index đầu tiên (Bootstrap) và gắn Alias ghi dữ liệu
     Invoke-CurlJson -Method PUT -Path "/dung-fe-000001" -FilePath (Join-Path $tempDir "dung-fe-bootstrap.json")
@@ -351,6 +522,10 @@ try {
     Invoke-CurlJson -Method PUT -Path "/dung-db-000001" -FilePath (Join-Path $tempDir "dung-db-bootstrap.json")
     Invoke-CurlJson -Method PUT -Path "/dung-web-000001" -FilePath (Join-Path $tempDir "dung-web-bootstrap.json")
     Invoke-CurlJson -Method PUT -Path "/wk03-logs-000001" -FilePath (Join-Path $tempDir "wk03-logs-bootstrap.json")
+    Invoke-CurlJson -Method PUT -Path "/wk03-cilium-envoy-000001" -FilePath (Join-Path $tempDir "wk03-cilium-envoy-bootstrap.json")
+    Invoke-CurlJson -Method PUT -Path "/wk03-cilium-000001" -FilePath (Join-Path $tempDir "wk03-cilium-bootstrap.json")
+    Invoke-CurlJson -Method PUT -Path "/wk03-cinder-csi-nodeplugin-000001" -FilePath (Join-Path $tempDir "wk03-cinder-csi-nodeplugin-bootstrap.json")
+    Invoke-CurlJson -Method PUT -Path "/wk03-k8s-events-000001" -FilePath (Join-Path $tempDir "wk03-k8s-events-bootstrap.json")
     
     Write-Host "Elasticsearch ILM, templates, and aliases have been configured."
 }
