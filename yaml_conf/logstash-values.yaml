@@ -10,7 +10,9 @@ resources:
     memory: "512Mi"
   limits:
     cpu: "800m"
-    memory: "1Gi"
+    memory: "2Gi"
+
+logstashJavaOpts: "-Xms1g -Xmx1g"
 
 persistence:
   enabled: true
