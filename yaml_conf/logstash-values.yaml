@@ -6,13 +6,31 @@ nodeSelector:
 
 resources:
   requests:
-    cpu: "300m"
-    memory: "512Mi"
-  limits:
-    cpu: "800m"
+    cpu: "1000m"
     memory: "2Gi"
+  limits:
+    cpu: "2000m"
+    memory: "4Gi"
 
-logstashJavaOpts: "-Xms1g -Xmx1g"
+logstashJavaOpts: "-Xms2g -Xmx2g"
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: 9600
+  initialDelaySeconds: 120
+  periodSeconds: 10
+  timeoutSeconds: 10
+  failureThreshold: 12
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: 9600
+  initialDelaySeconds: 180
+  periodSeconds: 20
+  timeoutSeconds: 10
+  failureThreshold: 6
 
 persistence:
   enabled: true
@@ -22,13 +40,18 @@ volumeClaimTemplate:
   storageClassName: "csi-cinder-sc-delete"
   resources:
     requests:
-      storage: 1Gi
+      storage: 5Gi
 
 logstashConfig:
   logstash.yml: |
     http.host: "0.0.0.0"
     xpack.monitoring.enabled: false
     pipeline.workers: 1
+    pipeline.batch.size: 75
+    pipeline.batch.delay: 50
+    queue.type: persisted
+    queue.max_bytes: 512mb
+    dead_letter_queue.enable: true
 
 logstashPipeline:
   logstash.conf: |
@@ -37,7 +60,7 @@ logstashPipeline:
         bootstrap_servers => "my-cluster-kafka-bootstrap.kafka-dung.svc:9092"
         topics => ["dung-logs-topic"]
         group_id => "logstash-consumer-group-4"
-        auto_offset_reset => "earliest"
+        auto_offset_reset => "latest"
         codec => json
       }
     }

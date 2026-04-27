@@ -3,7 +3,7 @@ $elkNs = "elk-dung"      # Thay thanh "elk" neu ban dung namespace ngan
 $kafkaNs = "kafka-dung"
 $esUser = "elastic"
 $esPass = "1xNIfTEXaH0MsbQN"
-$kafkaGroup = "logstash-consumer-group-2"
+$kafkaGroup = "logstash-consumer-group-4"
 $kafkaTopic = "dung-logs-topic"
 $indices = @("dung-fe-*", "dung-be-*", "dung-db-*", "dung-web-*")
 
@@ -58,7 +58,7 @@ if ($lagLines) {
 }
 
 # Kiem tra Error Log
-$errors = kubectl logs -n $elkNs -l app.kubernetes.io/name=logstash --since=10m 2>$null | Select-String -Pattern "ERROR|Elasticsearch Unreachable"
+$errors = kubectl logs -n $elkNs -l app=logstash-dung-logstash --since=10m 2>$null | Select-String -Pattern "ERROR|Elasticsearch Unreachable"
 if ($errors) {
     Write-Host " - [FAIL] Tim thay $($errors.Count) loi trong log Logstash!" -ForegroundColor Red
 } else {
