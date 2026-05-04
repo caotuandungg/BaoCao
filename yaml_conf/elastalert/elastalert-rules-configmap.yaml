@@ -1,0 +1,121 @@
+# Github config file:  https://github.com/jertel/elastalert2/blob/master/examples/rules/example_frequency.yaml
+# Rule Type Doc:     https://elastalert2.readthedocs.io/en/latest/ruletypes.html#frequency
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elastalert-rules
+  namespace: elk-dung
+data:
+  backend-error-alert.yaml: |
+    name: "Backend Error Count Alert"
+    type: frequency
+    index: dung-be-*
+    num_events: 10
+    timeframe:
+      minutes: 5
+    filter:
+      - term:
+          level: "ERROR"
+    alert:
+      - telegram
+    telegram_bot_token: "8662006878:AAGfODfAR6t1nrfj6dWalPmS3BiVyCMI8vA"
+    telegram_room_id: "983112687"
+    alert_text: |
+      [WARNING] Backend service has generated more than 10 ERROR logs in the last 5 minutes.
+      Number of errors: {0}
+    alert_text_args:
+      - num_matches
+
+  nginx-5xx-alert.yaml: |
+    name: "Nginx 5xx Error Alert"
+    type: frequency
+    index: dung-web-*
+    num_events: 20
+    timeframe:
+      minutes: 5
+    filter:
+      - range:
+          status_code:
+            gte: 500
+    alert:
+      - telegram
+    telegram_bot_token: "8662006878:AAGfODfAR6t1nrfj6dWalPmS3BiVyCMI8vA"
+    telegram_room_id: "983112687"
+    alert_text: |
+      [WARNING] Webserver has returned more than 20 responses with status >= 500 in the last 5 minutes.
+      Number of 5xx errors: {0}
+    alert_text_args:
+      - num_matches
+
+  db-auth-failed-alert.yaml: |
+    name: "Database Auth Failed Alert"
+    type: frequency
+    index: dung-db-*
+    num_events: 5
+    timeframe:
+      minutes: 10
+    filter:
+      - term:
+          event: "auth_failed"
+    alert:
+      - telegram
+    telegram_bot_token: "8662006878:AAGfODfAR6t1nrfj6dWalPmS3BiVyCMI8vA"
+    telegram_room_id: "983112687"
+    alert_text: |
+      [WARNING] Database has logged more than 5 authentication failures in the last 10 minutes.
+      Number of failures: {0}
+    alert_text_args:
+      - num_matches
+
+  wk03-system-critical-alert.yaml: |
+    name: "WK03 System Critical Alert"
+    type: any
+    index: wk03-logs-*
+    filter:
+      - query:
+          query_string:
+            query: "message:(\"Out of memory\" OR \"No space left on device\")"
+    alert:
+      - telegram
+    telegram_bot_token: "8662006878:AAGfODfAR6t1nrfj6dWalPmS3BiVyCMI8vA"
+    telegram_room_id: "983112687"
+    alert_text: |
+      [CRITICAL] Phat hien loi ha tang nghiem trong tren Node wk03!
+      Chi tiet log: {0}
+    alert_text_args:
+      - message
+
+  backend-flatline-alert.yaml: |
+    name: "Backend Silence (Flatline) Alert"
+    type: flatline
+    index: dung-be-*
+    threshold: 1
+    timeframe:
+      minutes: 15
+    alert:
+      - telegram
+    telegram_bot_token: "8662006878:AAGfODfAR6t1nrfj6dWalPmS3BiVyCMI8vA"
+    telegram_room_id: "983112687"
+    alert_text: |
+      [CRITICAL] Backend service dang bat thuong! Khong nhan duoc bat ky log nao trong 15 phut qua. He thong co the da bi sap.
+
+  k8s-warning-event-alert.yaml: |
+    name: "Kubernetes Warning Event Alert"
+    type: frequency
+    index: "wk03-k8s-events-*"
+    num_events: 3
+    timeframe:
+      minutes: 5
+    filter:
+      - query:
+          query_string:
+            query: "k8s_event_type:\"Warning\" AND k8s_event_reason:(\"Unhealthy\" OR \"Failed\" OR \"BackOff\" OR \"Killing\")"
+    alert:
+      - telegram
+    telegram_bot_token: "8662006878:AAGfODfAR6t1nrfj6dWalPmS3BiVyCMI8vA"
+    telegram_room_id: "983112687"
+    alert_text: |
+      [WARNING] Phat hien nhieu su kien bat thuong (Probe failed, CrashLoopBackOff, Killing...) trong Cluster K8s!
+      So luong su kien canh bao trong 5 phut qua: {0}
+    alert_text_args:
+      - num_matches
