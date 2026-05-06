@@ -21,7 +21,7 @@ vm-logs-topic
 
 ```text
 VM Fluent Bit
-  -> dung-my-cluster-bs.kafka.vnpost.cloud:443
+  -> dung-my-cluster-b0.kafka.vnpost.cloud:443
   -> NGINX Ingress TLS passthrough
   -> TransportServer trong namespace kafka-dung
   -> Kafka external listener của my-cluster
@@ -51,8 +51,8 @@ Các điểm học được:
 - Kafka có external TLS listener.
 - NGINX Ingress dùng `TransportServer`.
 - Listener của NGINX là `tls-passthrough`, port `443`, protocol `TLS_PASSTHROUGH`.
-- Có route riêng cho bootstrap.
-- Có route riêng cho từng broker.
+- Với Kafka riêng của mình đang dùng `nodeport` + `TransportServer`, Fluent Bit dùng broker domain `b0` làm bootstrap luôn.
+- Có route riêng cho broker `0`.
 - DNS trỏ domain Kafka về IP public của NGINX Ingress.
 
 Lưu ý: phần này chỉ `get/describe`, không apply hoặc patch tài nguyên của người khác.
@@ -103,7 +103,6 @@ yaml_conf/kafka/my-cluster-nginx-transportservers.yaml
 Có 2 route:
 
 ```text
-dung-my-cluster-bs.kafka.vnpost.cloud -> my-cluster-kafka-external2-bootstrap:9095
 dung-my-cluster-b0.kafka.vnpost.cloud -> my-cluster-combined-external2-0:9095
 ```
 
@@ -117,7 +116,6 @@ Kiểm tra:
 
 ```powershell
 kubectl get transportserver -n kafka-dung
-kubectl describe transportserver my-cluster-kafka-bootstrap-ts -n kafka-dung
 kubectl describe transportserver my-cluster-kafka-broker-0-ts -n kafka-dung
 ```
 
@@ -134,14 +132,12 @@ yaml_conf/kafka/my-cluster-external-dns-notes.md
 DNS cần trỏ về public IP của NGINX Ingress:
 
 ```text
-dung-my-cluster-bs.kafka.vnpost.cloud -> 103.252.73.212
 dung-my-cluster-b0.kafka.vnpost.cloud -> 103.252.73.212
 ```
 
 Kiểm tra DNS:
 
 ```powershell
-Resolve-DnsName dung-my-cluster-bs.kafka.vnpost.cloud
 Resolve-DnsName dung-my-cluster-b0.kafka.vnpost.cloud
 ```
 
@@ -231,7 +227,7 @@ Output Kafka trên VM dùng:
 [OUTPUT]
     Name              kafka
     Match             vm.dunglab.*
-    Brokers           dung-my-cluster-bs.kafka.vnpost.cloud:443
+    Brokers           dung-my-cluster-b0.kafka.vnpost.cloud:443
     Topics            vm-logs-topic
     Format            json
     Timestamp_Key     @timestamp
@@ -374,7 +370,6 @@ Kỳ vọng:
 
 ```text
 my-cluster Ready=True
-my-cluster-kafka-external2-bootstrap
 my-cluster-combined-external2-0
 ```
 
@@ -387,7 +382,6 @@ kubectl get transportserver -n kafka-dung
 Kỳ vọng:
 
 ```text
-my-cluster-kafka-bootstrap-ts   Valid
 my-cluster-kafka-broker-0-ts    Valid
 ```
 
@@ -405,18 +399,18 @@ vm-logs-topic   True
 
 ## 12. Kiểm tra từ VM
 
-Kiểm tra port 443 tới bootstrap:
+Kiểm tra port 443 tới broker domain, dùng làm bootstrap cho Fluent Bit:
 
 ```bash
-nc -vz dung-my-cluster-bs.kafka.vnpost.cloud 443
+nc -vz dung-my-cluster-b0.kafka.vnpost.cloud 443
 ```
 
 Kiểm tra TLS:
 
 ```bash
 openssl s_client \
-  -connect dung-my-cluster-bs.kafka.vnpost.cloud:443 \
-  -servername dung-my-cluster-bs.kafka.vnpost.cloud \
+  -connect dung-my-cluster-b0.kafka.vnpost.cloud:443 \
+  -servername dung-my-cluster-b0.kafka.vnpost.cloud \
   -CAfile /etc/fluent-bit/kafka-ca.crt
 ```
 
@@ -493,4 +487,3 @@ Strimzi operator/service account của namespace kafka
 ```
 
 Chỉ dùng chúng để đọc tham khảo khi cần học mô hình route.
-

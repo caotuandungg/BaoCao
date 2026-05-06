@@ -1,23 +1,6 @@
 apiVersion: k8s.nginx.org/v1
 kind: TransportServer
 metadata:
-  name: my-cluster-kafka-bootstrap-ts
-  namespace: kafka-dung
-spec:
-  listener:
-    name: tls-passthrough
-    protocol: TLS_PASSTHROUGH
-  host: dung-my-cluster-bs.kafka.vnpost.cloud
-  upstreams:
-    - name: kafka-bootstrap-upstream
-      service: my-cluster-kafka-external2-bootstrap
-      port: 9095
-  action:
-    pass: kafka-bootstrap-upstream
----
-apiVersion: k8s.nginx.org/v1
-kind: TransportServer
-metadata:
   name: my-cluster-kafka-broker-0-ts
   namespace: kafka-dung
 spec:
