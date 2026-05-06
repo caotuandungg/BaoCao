@@ -36,7 +36,7 @@ config:
         Name              tail
         # Input all: read all container logs except 3 special groups below.
         Path              /var/log/containers/*.log
-        Exclude_Path      /var/log/containers/cilium-envoy-*_kube-system_cilium-envoy-*.log,/var/log/containers/cilium-*_kube-system_cilium-agent-*.log,/var/log/containers/openstack-cinder-csi-nodeplugin-*_kube-system_*.log
+        Exclude_Path      /var/log/containers/cilium-envoy-*_kube-system_cilium-envoy-*.log,/var/log/containers/cilium-*_kube-system_cilium-agent-*.log,/var/log/containers/openstack-cinder-csi-nodeplugin-*_kube-system_*.log,/var/log/containers/dung-fe-log-generator-*_dung-lab_fe-*.log,/var/log/containers/dung-be-log-generator-*_dung-lab_be-*.log,/var/log/containers/dung-db-log-generator-*_dung-lab_db-*.log,/var/log/containers/dung-web-log-generator-*_dung-lab_web-*.log
         Read_from_Head    On
         Parser            cri
         Tag               kube.all.*
