@@ -61,7 +61,26 @@ logstashPipeline:
         topics => ["dung-logs-topic"]
         group_id => "logstash-consumer-group-4"
         auto_offset_reset => "latest"
-        codec => json
+        codec => json {
+          ecs_compatibility => disabled
+        }
+        add_field => {
+          "kafka_topic" => "dung-logs-topic"
+          "log_scope" => "internal"
+        }
+      }
+
+      kafka {
+        bootstrap_servers => "my-cluster-kafka-bootstrap.kafka-dung.svc:9092"
+        topics => ["vm-logs-topic"]
+        group_id => "logstash-vm-consumer-group-1"
+        auto_offset_reset => "latest"
+        codec => json {
+          ecs_compatibility => disabled
+        }
+        add_field => {
+          "kafka_topic" => "vm-logs-topic"
+        }
       }
     }
 
@@ -755,7 +774,15 @@ logstashPipeline:
           raw_k8s_event = raw && raw.match?(/"kind":"Event"/)
           is_k8s_event = (event.get("kind") == "Event") || !event.get("[involvedObject][kind]").nil? || raw_k8s_event
 
-          if is_k8s_event
+          log_scope = event.get("log_scope")
+          kafka_topic = event.get("kafka_topic")
+          is_external = log_scope == "external" || (log_scope.is_a?(Array) && log_scope.include?("external")) || kafka_topic == "vm-logs-topic"
+
+          if is_external && ["frontend", "backend", "database", "webserver"].include?(service)
+            route = service
+          elsif is_external
+            route = "wk03-logs"
+          elsif is_k8s_event
             route = "wk03-k8s-events"
           elsif (ns == "kube-system" && pod.is_a?(String) && pod.start_with?("cilium-envoy")) || raw_cilium_envoy
             route = "wk03-cilium-envoy"
