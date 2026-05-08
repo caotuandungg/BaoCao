@@ -3,6 +3,7 @@ set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-/opt/bocao-gitops}"
 LOG_GENERATORS_DIR="${REPO_DIR}/yaml_conf/vm-log-generators"
+NESTJS_LOG_APP_DIR="${REPO_DIR}/yaml_conf/vm-nestjs-log-app"
 FLUENT_BIT_DIR="${REPO_DIR}/yaml_conf/fluent-bit"
 KAFKA_CA_SRC="${REPO_DIR}/yaml_conf/kafka/my-cluster-ca.crt"
 FLUENT_BIT_CONF="/etc/fluent-bit/fluent-bit.conf"
@@ -31,6 +32,10 @@ fi
 
 bash "${LOG_GENERATORS_DIR}/install-vm-log-generators.sh"
 
+if [ -f "${NESTJS_LOG_APP_DIR}/install-vm-nestjs-log-app.sh" ]; then
+  bash "${NESTJS_LOG_APP_DIR}/install-vm-nestjs-log-app.sh"
+fi
+
 install -d -m 0755 /etc/fluent-bit
 install -d -m 0755 /var/lib/fluent-bit/state
 install -m 0644 "${FLUENT_BIT_DIR}/vm-fluent-bit.conf" "$FLUENT_BIT_CONF"
@@ -54,6 +59,6 @@ systemctl restart fluent-bit
 echo "VM logging stack reconciled from Git."
 echo "Repo: ${REPO_DIR}"
 echo "Check:"
-echo "  systemctl status dung-fe-log-generator dung-be-log-generator dung-db-log-generator dung-web-log-generator"
+echo "  systemctl status dung-fe-log-generator dung-be-log-generator dung-db-log-generator dung-web-log-generator dung-nestjs-log-app"
 echo "  systemctl status fluent-bit"
 echo "  journalctl -u fluent-bit -f"

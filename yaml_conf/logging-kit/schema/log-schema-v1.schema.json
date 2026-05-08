@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/dung-standard-log/v1",
+  "title": "Dung Standard Log Schema v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "@timestamp",
+    "service",
+    "environment",
+    "level",
+    "message",
+    "log_schema",
+    "pipeline"
+  ],
+  "properties": {
+    "@timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "service": {
+      "type": "string",
+      "minLength": 1
+    },
+    "environment": {
+      "type": "string",
+      "enum": ["dev", "test", "staging", "prod", "lab"]
+    },
+    "level": {
+      "type": "string",
+      "enum": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
+    },
+    "event": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "span_id": {
+      "type": "string"
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "user_id": {
+      "type": "string"
+    },
+    "tenant": {
+      "type": "string"
+    },
+    "log_source": {
+      "type": "string"
+    },
+    "log_scope": {
+      "type": "string",
+      "enum": ["internal", "external"]
+    },
+    "vm_name": {
+      "type": "string"
+    },
+    "kafka_topic": {
+      "type": "string"
+    },
+    "log_schema": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "version"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "const": "dung-standard-log"
+        },
+        "version": {
+          "type": "string",
+          "const": "1.0"
+        }
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["stage", "normalized"],
+      "properties": {
+        "stage": {
+          "type": "string",
+          "enum": ["raw", "parsed", "normalized", "enriched", "indexed"]
+        },
+        "normalized": {
+          "type": "boolean"
+        },
+        "producer": {
+          "type": "string"
+        },
+        "processed_by": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
+

@@ -1,0 +1,38 @@
+[sources.external_app]
+type = "file"
+include = ["${LOG_PATH:-/var/log/app/*.log}"]
+read_from = "beginning"
+
+[transforms.parse_json]
+type = "remap"
+inputs = ["external_app"]
+source = '''
+parsed, err = parse_json(.message)
+if err == null {
+  . = merge(., parsed)
+}
+
+.service = get_env_var("SERVICE_NAME") ?? "payment-api"
+.environment = get_env_var("ENVIRONMENT") ?? "prod"
+.tenant = get_env_var("TENANT") ?? "partner-a"
+.log_scope = get_env_var("LOG_SCOPE") ?? "external"
+.log_source = get_env_var("LOG_SOURCE") ?? "external-app"
+.log_schema = {
+  "name": get_env_var("LOG_SCHEMA_NAME") ?? "dung-standard-log",
+  "version": get_env_var("LOG_SCHEMA_VERSION") ?? "1.0"
+}
+.pipeline = {
+  "stage": "normalized",
+  "normalized": true,
+  "producer": "vector",
+  "processed_by": ["vector"]
+}
+'''
+
+[sinks.kafka]
+type = "kafka"
+inputs = ["parse_json"]
+bootstrap_servers = "${KAFKA_BROKERS:-my-cluster-kafka-bootstrap.kafka-dung.svc:9092}"
+topic = "${KAFKA_TOPIC:-vm-logs-topic}"
+encoding.codec = "json"
+

@@ -1,0 +1,59 @@
+{
+  "index_patterns": ["partner-logs-*", "dung-*", "wk03-*"],
+  "template": {
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "service": {
+          "type": "keyword"
+        },
+        "environment": {
+          "type": "keyword"
+        },
+        "level": {
+          "type": "keyword"
+        },
+        "event": {
+          "type": "keyword"
+        },
+        "message": {
+          "type": "text"
+        },
+        "tenant": {
+          "type": "keyword"
+        },
+        "log_scope": {
+          "type": "keyword"
+        },
+        "log_source": {
+          "type": "keyword"
+        },
+        "kafka_topic": {
+          "type": "keyword"
+        },
+        "log_schema.name": {
+          "type": "keyword"
+        },
+        "log_schema.version": {
+          "type": "keyword"
+        },
+        "pipeline.stage": {
+          "type": "keyword"
+        },
+        "pipeline.normalized": {
+          "type": "boolean"
+        },
+        "pipeline.producer": {
+          "type": "keyword"
+        },
+        "pipeline.processed_by": {
+          "type": "keyword"
+        }
+      }
+    }
+  }
+}
+
