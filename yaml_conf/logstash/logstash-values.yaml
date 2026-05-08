@@ -85,6 +85,111 @@ logstashPipeline:
     }
 
     filter {
+      if [log_scope] == "external" and [log] =~ /^\[Nest\]/ {
+        mutate {
+          add_field => {
+            "event_dataset" => "nestjs.raw"
+            "log_format" => "nestjs_text"
+            "service" => "nestjs"
+            "service_name" => "nestjs"
+          }
+          copy => {
+            "log" => "nest_raw_message"
+          }
+          rename => {
+            "log" => "message"
+          }
+        }
+
+        ruby {
+          code => '
+            event.set("nest_raw_message", event.get("message")) if event.get("nest_raw_message").nil?
+          '
+        }
+
+        grok {
+          match => {
+            "message" => '^\[Nest\]\s+%{NUMBER:nest_pid:int}\s+-\s+%{MONTHNUM:nest_month}/%{MONTHDAY:nest_day}/%{YEAR:nest_year},\s+%{TIME:nest_time}\s+%{WORD:nest_ampm}\s+%{SPACE}(?<nest_level>LOG|ERROR|WARN|DEBUG|VERBOSE)\s+\[%{DATA:nest_context}\]\s+%{GREEDYDATA:nest_message}$'
+          }
+          tag_on_failure => ["_nestjs_parse_failure"]
+        }
+
+        if !("_nestjs_parse_failure" in [tags]) {
+          mutate {
+            add_field => {
+              "nest_timestamp" => "%{nest_month}/%{nest_day}/%{nest_year}, %{nest_time} %{nest_ampm}"
+            }
+            replace => {
+              "message" => "%{nest_message}"
+            }
+          }
+
+          date {
+            match => ["nest_timestamp", "MM/dd/yyyy, h:mm:ss a"]
+            target => "@timestamp"
+            timezone => "UTC"
+            tag_on_failure => ["_nestjs_date_parse_failure"]
+          }
+
+          ruby {
+            code => '
+              level = event.get("nest_level")
+              mapped = {"LOG" => "INFO", "WARN" => "WARN", "ERROR" => "ERROR", "DEBUG" => "DEBUG", "VERBOSE" => "DEBUG"}[level]
+              event.set("level", mapped) if mapped
+
+              context = event.get("nest_context")
+              if context == "HTTP"
+                msg = event.get("nest_message").to_s
+                if (m = msg.match(/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(\S+)\s+(\d{3})\s+(\d+)ms(?:\s+error="([^"]+)")?$/))
+                  event.set("event", "http_request")
+                  event.set("method", m[1])
+                  event.set("path", m[2])
+                  event.set("status_code", m[3].to_i)
+                  event.set("response_time_ms", m[4].to_i)
+                  event.set("error_message", m[5]) if m[5]
+                end
+              elsif context == "SyntheticEventsService"
+                event.set("event", "synthetic_event")
+              else
+                event.set("event", "nestjs_log")
+              end
+            '
+          }
+
+          kv {
+            source => "nest_message"
+            target => "nestjs_kv"
+            field_split_pattern => "\s+"
+            value_split => "="
+            trim_value => "\""
+            whitespace => "lenient"
+            tag_on_failure => []
+          }
+
+          mutate {
+            rename => {
+              "[nestjs_kv][request_id]" => "request_id"
+              "[nestjs_kv][job]" => "job"
+              "[nestjs_kv][provider]" => "provider"
+              "[nestjs_kv][duration_ms]" => "duration_ms"
+              "[nestjs_kv][reason]" => "error_reason"
+            }
+            convert => {
+              "duration_ms" => "integer"
+            }
+            remove_field => [
+              "nestjs_kv",
+              "nest_month",
+              "nest_day",
+              "nest_year",
+              "nest_time",
+              "nest_ampm",
+              "nest_timestamp"
+            ]
+          }
+        }
+      }
+
       if ![service] and [log] =~ "^{.*}$" {
         json {
           source => "log"
@@ -778,7 +883,7 @@ logstashPipeline:
           kafka_topic = event.get("kafka_topic")
           is_external = log_scope == "external" || (log_scope.is_a?(Array) && log_scope.include?("external")) || kafka_topic == "vm-logs-topic"
 
-          if is_external && ["frontend", "backend", "database", "webserver"].include?(service)
+          if is_external && ["frontend", "backend", "database", "webserver", "nestjs"].include?(service)
             route = service
           elsif is_external
             route = "wk03-logs"
@@ -846,6 +951,15 @@ logstashPipeline:
           password => "1xNIfTEXaH0MsbQN"
           ssl_certificate_verification => false
           index => "dung-web-write"
+        }
+      }
+      else if [@metadata][route_target] == "nestjs" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1xNIfTEXaH0MsbQN"
+          ssl_certificate_verification => false
+          index => "dung-nestjs-write"
         }
       }
       else if [@metadata][route_target] == "wk03-logs" {
