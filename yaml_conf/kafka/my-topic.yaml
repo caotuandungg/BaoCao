@@ -1,25 +1,28 @@
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
+# https://strimzi.io/docs/operators/latest/using.html#tuning-topics-kafka
+
+
+apiVersion: kafka.strimzi.io/v1beta2 # Phiên bản API của Strimzi Kafka Operator
+kind: KafkaTopic                     # Loại tài nguyên dùng để tạo Topic trong Kafka
 metadata:
-  name: dung-logs-topic
+  name: dung-logs-topic              # Tên của Kafka Topic cho log nội bộ (internal)
   labels:
-    strimzi.io/cluster: my-cluster
+    strimzi.io/cluster: my-cluster   # Chỉ định cụm Kafka (cluster) mà topic này thuộc về
 spec:
-  partitions: 2
-  replicas: 1
-  config:
-    retention.ms: 7200000
-    retention.bytes: 1073741824
+  partitions: 2                      # Số lượng phân vùng (partitions) để tăng song song hóa
+  replicas: 1                        # Số lượng bản sao (replication factor) của topic
+  config:                            # Cấu hình chi tiết cho topic
+    retention.ms: 7200000            # Thời gian lưu trữ log tối đa: 7.200.000 ms (2 giờ)
+    retention.bytes: 1073741824      # Dung lượng lưu trữ tối đa: 1.073.741.824 bytes (1 GB)
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: vm-logs-topic
+  name: vm-logs-topic                # Tên của Kafka Topic cho log từ VM (external)
   labels:
     strimzi.io/cluster: my-cluster
 spec:
   partitions: 2
   replicas: 1
   config:
-    retention.ms: 7200000
-    retention.bytes: 1073741824
+    retention.ms: 7200000            # Thời gian lưu trữ (2 giờ)
+    retention.bytes: 1073741824      # Dung lượng tối đa (1 GB)

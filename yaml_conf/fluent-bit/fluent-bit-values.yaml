@@ -1,11 +1,11 @@
 # Github config file:  https://github.com/fluent/helm-charts/blob/main/charts/fluent-bit/values.yaml
-kind: DaemonSet
-hostNetwork: true
-dnsPolicy: ClusterFirstWithHostNet
-nodeSelector:
-  kubernetes.io/hostname: wk03
+kind: DaemonSet                       # Triển khai dưới dạng DaemonSet (chạy trên mọi Node)
+hostNetwork: true                    # Cho phép Pod sử dụng network của Node host
+dnsPolicy: ClusterFirstWithHostNet   # Chính sách DNS tối ưu cho hostNetwork
+nodeSelector:                        # Chỉ chạy trên các Node cụ thể
+  kubernetes.io/hostname: wk03       # Chỉ chạy trên Node có tên wk03
 
-resources:
+resources:                           # Cấu hình tài nguyên (CPU/RAM)
   requests:
     cpu: 100m
     memory: 128Mi
@@ -17,43 +17,42 @@ resources:
 config:
   service: |
     [SERVICE]
-        Flush                  5
-        Grace                  30
-        Log_Level              info
-        Daemon                 off
-        Parsers_File           parsers.conf
-        Parsers_File           custom_parsers.conf
-        HTTP_Server            On
+        Flush                  5     # Tần suất đẩy log đi (giây)
+        Grace                  30    # Thời gian chờ tắt máy an toàn (giây)
+        Log_Level              info  # Mức độ ghi log của Fluent Bit
+        Daemon                 off   # Chạy ở chế độ foreground
+        Parsers_File           parsers.conf # File cấu hình parser mặc định
+        Parsers_File           custom_parsers.conf # File cấu hình parser tùy chỉnh
+        HTTP_Server            On    # Kích hoạt server HTTP để giám sát
         HTTP_Listen            0.0.0.0
-        HTTP_Port              2020
-        storage.path           /var/fluent-bit/state
+        HTTP_Port              2020  # Cổng API giám sát (metrics)
+        storage.path           /var/fluent-bit/state # Đường dẫn lưu trữ trạng thái
         storage.sync           normal
         storage.checksum       off
         storage.max_chunks_up  128
 
   inputs: |
     [INPUT]
-        Name              tail
-        # Input all: read all container logs except 3 special groups below.
+        Name              tail       # Thu thập log từ file
+        # Thu thập toàn bộ log container ngoại trừ các nhóm đặc biệt bên dưới
         Path              /var/log/containers/*.log
         Exclude_Path      /var/log/containers/cilium-envoy-*_kube-system_cilium-envoy-*.log,/var/log/containers/cilium-*_kube-system_cilium-agent-*.log,/var/log/containers/openstack-cinder-csi-nodeplugin-*_kube-system_*.log,/var/log/containers/dung-fe-log-generator-*_dung-lab_fe-*.log,/var/log/containers/dung-be-log-generator-*_dung-lab_be-*.log,/var/log/containers/dung-db-log-generator-*_dung-lab_db-*.log,/var/log/containers/dung-web-log-generator-*_dung-lab_web-*.log
-        Read_from_Head    On
-        Parser            cri
-        Tag               kube.all.*
+        Read_from_Head    On         # Đọc từ đầu nếu file mới
+        Parser            cri        # Parser chuẩn cho Kubernetes (CRI)
+        Tag               kube.all.* # Gắn nhãn cho nhóm log chung
         Refresh_Interval  5
-        Mem_Buf_Limit     10MB
+        Mem_Buf_Limit     10MB       # Giới hạn bộ nhớ đệm
         Skip_Long_Lines   On
-        DB                /var/fluent-bit/state/tail-db-all
+        DB                /var/fluent-bit/state/tail-db-all # File DB lưu vị trí đã đọc
         DB.locking        true
         storage.type      filesystem
 
     [INPUT]
-        Name              tail
-        # Input special: read only selected kube-system pod groups.
+        Name              tail       # Thu thập log cho các thành phần đặc biệt (Cilium, Storage)
         Path              /var/log/containers/cilium-envoy-*_kube-system_cilium-envoy-*.log,/var/log/containers/cilium-*_kube-system_cilium-agent-*.log,/var/log/containers/openstack-cinder-csi-nodeplugin-*_kube-system_*.log
         Read_from_Head    On
         Parser            cri
-        Tag               kube.special.*
+        Tag               kube.special.* # Gắn nhãn cho nhóm log hạ tầng đặc biệt
         Refresh_Interval  5
         Mem_Buf_Limit     10MB
         Skip_Long_Lines   On
@@ -62,16 +61,16 @@ config:
         storage.type      filesystem
 
     [INPUT]
-        Name              kubernetes_events
-        Tag               kube.events
+        Name              kubernetes_events # Thu thập các sự kiện của cụm Kubernetes
+        Tag               kube.events       # Gắn nhãn cho log sự kiện
         Kube_URL          https://kubernetes.default.svc:443
         Kube_CA_File      /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         Kube_Token_File   /var/run/secrets/kubernetes.io/serviceaccount/token
 
   filters: |
     [FILTER]
-        Name                kubernetes
-        Match               kube.all.*
+        Name                kubernetes      # Đính kèm Metadata K8s (Pod name, Namespace...)
+        Match               kube.all.*      # Áp dụng cho nhóm log chung
         Kube_Tag_Prefix     kube.all.var.log.containers.
         Buffer_Size         256k
         Merge_Log           Off
@@ -79,7 +78,7 @@ config:
         K8S-Logging.Exclude Off
 
     [FILTER]
-        Name                kubernetes
+        Name                kubernetes      # Đính kèm Metadata K8s cho nhóm đặc biệt
         Match               kube.special.*
         Kube_Tag_Prefix     kube.special.var.log.containers.
         Buffer_Size         256k
@@ -88,7 +87,7 @@ config:
         K8S-Logging.Exclude Off
 
     [FILTER]
-        Name         parser
+        Name         parser             # Sử dụng parser để chuyển đổi log text sang JSON
         Match        kube.all.*
         Key_Name     log 
         Parser       json_log
@@ -105,29 +104,29 @@ config:
 
   outputs: |
     [OUTPUT]
-        Name           kafka
-        Match          kube.*
+        Name           kafka            # Gửi log về Kafka
+        Match          kube.*           # Gửi toàn bộ log có nhãn bắt đầu bằng kube.
         Brokers        my-cluster-kafka-bootstrap.kafka-dung.svc:9092
-        Topics         dung-logs-topic
+        Topics         dung-logs-topic  # Topic đích trên Kafka
         Format         json
         Timestamp_Key  @timestamp
         Timestamp_Format iso8601
-        storage.total_limit_size 50MB
+        storage.total_limit_size 50MB   # Giới hạn lưu trữ đệm khi mất kết nối
 
   customParsers: |
     [PARSER]
-        Name        json_log
+        Name        json_log            # Định nghĩa parser JSON tùy chỉnh
         Format      json
         Time_Key    @timestamp
         Time_Format %Y-%m-%dT%H:%M:%S.%L%z
         Time_Keep   On
 
-rbac:
+rbac:                                   # Cấu hình quyền truy cập (Role-based access control)
   create: true
-  nodeAccess: true
-  eventsAccess: true
+  nodeAccess: true                      # Quyền truy cập thông tin Node
+  eventsAccess: true                    # Quyền truy cập các sự kiện Kubernetes
 
-daemonSetVolumes:
+daemonSetVolumes:                       # Các Volume mount từ Host vào Container
   - name: varlog
     hostPath:
       path: /var/log
@@ -143,7 +142,7 @@ daemonSetVolumes:
       path: /var/fluent-bit/state
       type: DirectoryOrCreate
 
-daemonSetVolumeMounts:
+daemonSetVolumeMounts:                  # Gắn các Volume vào đường dẫn cụ thể trong Container
   - name: varlog
     mountPath: /var/log
   - name: varlibdockercontainers
