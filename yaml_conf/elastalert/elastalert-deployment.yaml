@@ -1,28 +1,30 @@
-apiVersion: apps/v1
-kind: Deployment
+# Github config file:  https://github.com/jertel/elastalert2/blob/master/chart/elastalert2/templates/deployment.yaml
+
+apiVersion: apps/v1                 # Phiên bản API của Kubernetes cho tài nguyên Deployment
+kind: Deployment                   # Loại tài nguyên: Deployment (quản lý việc triển khai Pod)
 metadata:
-  name: elastalert2
-  namespace: elk-dung
+  name: elastalert2                # Tên định danh của Deployment
+  namespace: elk-dung              # Không gian tên (namespace) triển khai
 spec:
-  replicas: 1
+  replicas: 1                      # Số lượng Pod ElastAlert chạy song song (mặc định 1)
   selector:
     matchLabels:
-      app: elastalert2
+      app: elastalert2             # Nhãn nhận diện để quản lý các Pod
   template:
     metadata:
       labels:
-        app: elastalert2
+        app: elastalert2           # Nhãn gán cho Pod khi được tạo ra
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: wk03
+      nodeSelector:                # Chọn Node cụ thể để chạy Pod
+        kubernetes.io/hostname: wk03 # Chỉ chạy trên Node wk03
       containers:
-      - name: elastalert2
-        image: jertel/elastalert2:2.21.0
-        args:
+      - name: elastalert2          # Tên Container bên trong Pod
+        image: jertel/elastalert2:2.21.0 # Image Docker chính thức của ElastAlert2 (phiên bản 2.21.0)
+        args:                      # Các tham số dòng lệnh khi khởi chạy
           - "--config"
-          - "/opt/elastalert/config.yaml"
-          - "--verbose"
-        resources:
+          - "/opt/elastalert/config.yaml" # Chỉ định file cấu hình chính
+          - "--verbose"            # Bật chế độ log chi tiết để dễ debug
+        resources:                 # Giới hạn tài nguyên CPU/RAM cho Container
           requests:
             cpu: "100m"
             memory: "256Mi"
@@ -30,16 +32,16 @@ spec:
             cpu: "200m"
             memory: "512Mi"
 
-        volumeMounts:
+        volumeMounts:              # Gắn (mount) các ổ đĩa vào Container
         - name: config
-          mountPath: /opt/elastalert/config.yaml
+          mountPath: /opt/elastalert/config.yaml # Gắn file config từ ConfigMap
           subPath: config.yaml
         - name: rules
-          mountPath: /opt/elastalert/rules
-      volumes:
+          mountPath: /opt/elastalert/rules # Gắn thư mục chứa các quy tắc cảnh báo (Rules)
+      volumes:                     # Khai báo các nguồn dữ liệu (Volume)
       - name: config
         configMap:
-          name: elastalert-config
+          name: elastalert-config  # Lấy dữ liệu từ ConfigMap elastalert-config
       - name: rules
         configMap:
-          name: elastalert-rules
+          name: elastalert-rules   # Lấy dữ liệu từ ConfigMap elastalert-rules

@@ -1,5 +1,6 @@
 # Github config file:  https://github.com/fluent/helm-charts/blob/main/charts/fluent-bit/values.yaml
-kind: DaemonSet                       # Triển khai dưới dạng DaemonSet (chạy trên mọi Node)
+
+kind: DaemonSet                      
 hostNetwork: true                    # Cho phép Pod sử dụng network của Node host
 dnsPolicy: ClusterFirstWithHostNet   # Chính sách DNS tối ưu cho hostNetwork
 nodeSelector:                        # Chỉ chạy trên các Node cụ thể
