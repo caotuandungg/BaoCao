@@ -1,10 +1,8 @@
 # https://github.com/elastic/helm-charts/blob/main/logstash/values.yaml (ctrl f search)
 
-replicas: 2                          
-antiAffinity: "hard"                 # không chạy chung 1 Node
-antiAffinityTopologyKey: "kubernetes.io/hostname" # Tiêu chí phân tách Pod dựa trên tên hostname của Node
-nodeSelector:                        # Chọn các Node cụ thể để chạy Logstash
-  dung.io/logstash-node: "true"      # Chỉ chạy trên các Node có nhãn (label) này
+replicas: 1                          # Chỉ chạy 1 instance (đọc file log local trên Node)
+nodeSelector:                        # Pin lên Node wk03 (nơi chứa container logs)
+  kubernetes.io/hostname: wk03
 
 resources:                           
   requests:                          # Mức tài nguyên tối thiểu cần để khởi chạy
@@ -56,140 +54,68 @@ logstashConfig:                      # Cấu hình file logstash.yml bên trong 
     dead_letter_queue.enable: true   # Kích hoạt hàng đợi cho các bản ghi log bị lỗi xử lý
 
 logstashPipeline:
-  logstash.conf: |
+  logstash.conf: ""
+  01-input.conf: |
     input {
-      kafka {
-        bootstrap_servers => "my-cluster-kafka-bootstrap.kafka-dung.svc:9092"
-        topics => ["dung-logs-topic"]
-        group_id => "logstash-consumer-group-4"
-        auto_offset_reset => "latest"
-        codec => json {
-          ecs_compatibility => disabled
-        }
-        add_field => {
-          "kafka_topic" => "dung-logs-topic"
-          "log_scope" => "internal"
-        }
-      }
-
-      kafka {
-        bootstrap_servers => "my-cluster-kafka-bootstrap.kafka-dung.svc:9092"
-        topics => ["vm-logs-topic"]
-        group_id => "logstash-vm-consumer-group-1"
-        auto_offset_reset => "latest"
-        codec => json {
-          ecs_compatibility => disabled
-        }
-        add_field => {
-          "kafka_topic" => "vm-logs-topic"
-        }
+      file {
+        path => "/var/log/containers/*.log"
+        exclude => ["*logstash-dung-logstash*"]
+        start_position => "beginning"
+        sincedb_path => "/usr/share/logstash/data/sincedb"
+        codec => plain
+        type => "container"
       }
     }
 
+  10-filter-cri-k8s.conf: |
     filter {
-      if [log_scope] == "external" and [log] =~ /^\[Nest\]/ {
+      grok {
+        match => {
+          "message" => "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} %{GREEDYDATA:log}"
+        }
+        tag_on_failure => ["_cri_parse_failure"]
+      }
+
+      if !("_cri_parse_failure" in [tags]) {
+        date {
+          match => ["cri_timestamp", "ISO8601"]
+          target => "@timestamp"
+        }
         mutate {
-          add_field => {
-            "event_dataset" => "nestjs.raw"
-            "log_format" => "nestjs_text"
-            "service" => "nestjs"
-            "service_name" => "nestjs"
-          }
-          copy => {
-            "log" => "nest_raw_message"
-          }
-          rename => {
-            "log" => "message"
-          }
+          replace => { "message" => "%{log}" }
+          remove_field => ["cri_timestamp", "cri_flags"]
         }
+      }
 
-        ruby {
-          code => '
-            event.set("nest_raw_message", event.get("message")) if event.get("nest_raw_message").nil?
-          '
+      grok {
+        match => {
+          "[path]" => "/var/log/containers/%{DATA:_pod_name}_%{DATA:_namespace_name}_%{GREEDYDATA:_container_full_id}\\.log$"
         }
+        tag_on_failure => ["_filename_parse_failure"]
+      }
 
-        grok {
-          match => {
-            "message" => '^\[Nest\]\s+%{NUMBER:nest_pid:int}\s+-\s+%{MONTHNUM:nest_month}/%{MONTHDAY:nest_day}/%{YEAR:nest_year},\s+%{TIME:nest_time}\s+%{WORD:nest_ampm}\s+%{SPACE}(?<nest_level>LOG|ERROR|WARN|DEBUG|VERBOSE)\s+\[%{DATA:nest_context}\]\s+%{GREEDYDATA:nest_message}$'
-          }
-          tag_on_failure => ["_nestjs_parse_failure"]
-        }
+      ruby {
+        code => '
+          pn = event.get("_pod_name")
+          ns = event.get("_namespace_name")
+          cfid = event.get("_container_full_id")
 
-        if !("_nestjs_parse_failure" in [tags]) {
-          mutate {
-            add_field => {
-              "nest_timestamp" => "%{nest_month}/%{nest_day}/%{nest_year}, %{nest_time} %{nest_ampm}"
-            }
-            replace => {
-              "message" => "%{nest_message}"
-            }
-          }
+          event.set("[kubernetes][pod_name]", pn) if pn
+          event.set("[kubernetes][namespace_name]", ns) if ns
 
-          date {
-            match => ["nest_timestamp", "MM/dd/yyyy, h:mm:ss a"]
-            target => "@timestamp"
-            timezone => "UTC"
-            tag_on_failure => ["_nestjs_date_parse_failure"]
-          }
+          if cfid.is_a?(String)
+            idx = cfid.rindex("-")
+            if idx
+              event.set("[kubernetes][container_name]", cfid[0...idx])
+            else
+              event.set("[kubernetes][container_name]", cfid)
+            end
+          end
 
-          ruby {
-            code => '
-              level = event.get("nest_level")
-              mapped = {"LOG" => "INFO", "WARN" => "WARN", "ERROR" => "ERROR", "DEBUG" => "DEBUG", "VERBOSE" => "DEBUG"}[level]
-              event.set("level", mapped) if mapped
-
-              context = event.get("nest_context")
-              if context == "HTTP"
-                msg = event.get("nest_message").to_s
-                if (m = msg.match(/^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(\S+)\s+(\d{3})\s+(\d+)ms(?:\s+error="([^"]+)")?$/))
-                  event.set("event", "http_request")
-                  event.set("method", m[1])
-                  event.set("path", m[2])
-                  event.set("status_code", m[3].to_i)
-                  event.set("response_time_ms", m[4].to_i)
-                  event.set("error_message", m[5]) if m[5]
-                end
-              elsif context == "SyntheticEventsService"
-                event.set("event", "synthetic_event")
-              else
-                event.set("event", "nestjs_log")
-              end
-            '
-          }
-
-          kv {
-            source => "nest_message"
-            target => "nestjs_kv"
-            field_split_pattern => "\s+"
-            value_split => "="
-            trim_value => "\""
-            whitespace => "lenient"
-            tag_on_failure => []
-          }
-
-          mutate {
-            rename => {
-              "[nestjs_kv][request_id]" => "request_id"
-              "[nestjs_kv][job]" => "job"
-              "[nestjs_kv][provider]" => "provider"
-              "[nestjs_kv][duration_ms]" => "duration_ms"
-              "[nestjs_kv][reason]" => "error_reason"
-            }
-            convert => {
-              "duration_ms" => "integer"
-            }
-            remove_field => [
-              "nestjs_kv",
-              "nest_month",
-              "nest_day",
-              "nest_year",
-              "nest_time",
-              "nest_ampm",
-              "nest_timestamp"
-            ]
-          }
-        }
+          event.remove("_pod_name")
+          event.remove("_namespace_name")
+          event.remove("_container_full_id")
+        '
       }
 
       if ![service] and [log] =~ "^{.*}$" {
@@ -204,10 +130,13 @@ logstashPipeline:
         }
       }
 
-      if [kubernetes][pod_name] =~ /^logstash/ or [kubernetes][container_name] == "logstash" or [message] =~ /\[logstash\.outputs\.elasticsearch\]/ {
+      if [kubernetes][pod_name] =~ /^logstash/ or [kubernetes][container_name] == "logstash" or [message] =~ /\\[logstash\\.outputs\\.elasticsearch\\]/ {
         drop {}
       }
+    }
 
+  20-filter-cilium.conf: |
+    filter {
       if [kubernetes][namespace_name] == "kube-system" and [kubernetes][pod_name] =~ /^cilium-envoy(-|$)/ and [kubernetes][container_name] == "cilium-envoy" {
         mutate {
           add_field => {
@@ -235,9 +164,9 @@ logstashPipeline:
           grok {
             match => {
               "message" => [
-                '^\[%{TIMESTAMP_ISO8601:envoy_ts}\]\[%{NUMBER:envoy_thread}\]\[%{LOGLEVEL:envoy_level}\]\[%{DATA:envoy_module}\] \[%{DATA:envoy_source_file}:%{NUMBER:envoy_source_line}\] %{GREEDYDATA:envoy_message}$',
-                '^\[%{TIMESTAMP_ISO8601:envoy_ts}\]\[%{NUMBER:envoy_thread}\]\[%{LOGLEVEL:envoy_level}\]\[%{DATA:envoy_module}\] %{GREEDYDATA:envoy_message}$',
-                '^\[%{TIMESTAMP_ISO8601:envoy_ts}\]\[%{LOGLEVEL:envoy_level}\]\[%{DATA:envoy_module}\] %{GREEDYDATA:envoy_message}$'
+                '^\\[%{TIMESTAMP_ISO8601:envoy_ts}\\]\\[%{NUMBER:envoy_thread}\\]\\[%{LOGLEVEL:envoy_level}\\]\\[%{DATA:envoy_module}\\] \\[%{DATA:envoy_source_file}:%{NUMBER:envoy_source_line}\\] %{GREEDYDATA:envoy_message}$',
+                '^\\[%{TIMESTAMP_ISO8601:envoy_ts}\\]\\[%{NUMBER:envoy_thread}\\]\\[%{LOGLEVEL:envoy_level}\\]\\[%{DATA:envoy_module}\\] %{GREEDYDATA:envoy_message}$',
+                '^\\[%{TIMESTAMP_ISO8601:envoy_ts}\\]\\[%{LOGLEVEL:envoy_level}\\]\\[%{DATA:envoy_module}\\] %{GREEDYDATA:envoy_message}$'
               ]
             }
             tag_on_failure => ["_cilium_envoy_parse_failure"]
@@ -265,9 +194,9 @@ logstashPipeline:
           kv {
             source => "message"
             target => "envoy_kv"
-            field_split_pattern => "\s+"
+            field_split_pattern => "\\s+"
             value_split => "="
-            trim_value => "\""
+            trim_value => "\\""
             whitespace => "lenient"
             tag_on_failure => ["_cilium_envoy_kv_parse_failure"]
           }
@@ -308,7 +237,7 @@ logstashPipeline:
         if [envoy_message] =~ /^cds: response indicates/ {
           grok {
             match => {
-              "envoy_message" => '^cds: response indicates %{NUMBER:envoy_cds_added} added/updated cluster\(s\), %{NUMBER:envoy_cds_removed} removed cluster\(s\); applying changes$'
+              "envoy_message" => '^cds: response indicates %{NUMBER:envoy_cds_added} added/updated cluster\\(s\\), %{NUMBER:envoy_cds_removed} removed cluster\\(s\\); applying changes$'
             }
             tag_on_failure => []
           }
@@ -320,10 +249,10 @@ logstashPipeline:
           }
         }
 
-        if [envoy_message] =~ /^cds: added\/updated/ {
+        if [envoy_message] =~ /^cds: added\\/updated/ {
           grok {
             match => {
-              "envoy_message" => '^cds: added/updated %{NUMBER:envoy_cds_applied_added} cluster\(s\) \(skipped %{NUMBER:envoy_cds_skipped_unmodified} unmodified cluster\(s\)\); removed %{NUMBER:envoy_cds_applied_removed} cluster\(s\)$'
+              "envoy_message" => '^cds: added/updated %{NUMBER:envoy_cds_applied_added} cluster\\(s\\) \\(skipped %{NUMBER:envoy_cds_skipped_unmodified} unmodified cluster\\(s\\)\\); removed %{NUMBER:envoy_cds_applied_removed} cluster\\(s\\)$'
             }
             tag_on_failure => []
           }
@@ -423,7 +352,7 @@ logstashPipeline:
               target => "cilium_kv"
               field_split => " "
               value_split => "="
-              trim_value => "\""
+              trim_value => "\\""
               whitespace => "lenient"
               tag_on_failure => ["_cilium_kv_parse_failure"]
             }
@@ -523,7 +452,10 @@ logstashPipeline:
           }
         }
       }
+    }
 
+  21-filter-cinder.conf: |
+    filter {
       if [kubernetes][namespace_name] == "kube-system" and [kubernetes][pod_name] =~ /^openstack-cinder-csi-nodeplugin-/ {
         mutate {
           add_field => {
@@ -536,9 +468,9 @@ logstashPipeline:
         grok {
           match => {
             "message" => [
-              '^(?<cinder_severity>[IWEF])(?<cinder_month>\d{2})(?<cinder_day>\d{2}) %{TIME:cinder_log_time}\s+%{NUMBER:cinder_thread}\s+%{DATA:cinder_source_file}:%{NUMBER:cinder_source_line}\] "(?<cinder_event>[^"]+)"(?: %{GREEDYDATA:cinder_kv_text})?$',
-              '^(?<cinder_severity>[IWEF])(?<cinder_month>\d{2})(?<cinder_day>\d{2}) %{TIME:cinder_log_time}\s+%{NUMBER:cinder_thread}\s+%{DATA:cinder_source_file}:%{NUMBER:cinder_source_line}\] %{GREEDYDATA:cinder_message}$',
-              '^(?<cinder_year>\d{4})/(?<cinder_month>\d{2})/(?<cinder_day>\d{2}) %{TIME:cinder_log_time} %{GREEDYDATA:cinder_message}$'
+              '^(?<cinder_severity>[IWEF])(?<cinder_month>\\d{2})(?<cinder_day>\\d{2}) %{TIME:cinder_log_time}\\s+%{NUMBER:cinder_thread}\\s+%{DATA:cinder_source_file}:%{NUMBER:cinder_source_line}\\] "(?<cinder_event>[^"]+)"(?: %{GREEDYDATA:cinder_kv_text})?$',
+              '^(?<cinder_severity>[IWEF])(?<cinder_month>\\d{2})(?<cinder_day>\\d{2}) %{TIME:cinder_log_time}\\s+%{NUMBER:cinder_thread}\\s+%{DATA:cinder_source_file}:%{NUMBER:cinder_source_line}\\] %{GREEDYDATA:cinder_message}$',
+              '^(?<cinder_year>\\d{4})/(?<cinder_month>\\d{2})/(?<cinder_day>\\d{2}) %{TIME:cinder_log_time} %{GREEDYDATA:cinder_message}$'
             ]
           }
           tag_on_failure => ["_cinder_klog_parse_failure"]
@@ -585,9 +517,9 @@ logstashPipeline:
           kv {
             source => "cinder_kv_text"
             target => "cinder_kv"
-            field_split_pattern => "\s+"
+            field_split_pattern => "\\s+"
             value_split => "="
-            trim_value => "\""
+            trim_value => "\\""
             whitespace => "lenient"
             tag_on_failure => ["_cinder_kv_parse_failure"]
           }
@@ -595,9 +527,9 @@ logstashPipeline:
           kv {
             source => "message"
             target => "cinder_kv"
-            field_split_pattern => "\s+"
+            field_split_pattern => "\\s+"
             value_split => "="
-            trim_value => "\""
+            trim_value => "\\""
             whitespace => "lenient"
             tag_on_failure => ["_cinder_kv_parse_failure"]
           }
@@ -632,16 +564,16 @@ logstashPipeline:
         if [cinder_message] =~ /^Disk "/ {
           grok {
             match => {
-              "cinder_message" => '^Disk "%{DATA:cinder_disk_path}" appears to be unformatted, attempting to format as type: "%{DATA:cinder_fs_type}" with options: \[%{DATA:cinder_format_options}\]$'
+              "cinder_message" => '^Disk "%{DATA:cinder_disk_path}" appears to be unformatted, attempting to format as type: "%{DATA:cinder_fs_type}" with options: \\[%{DATA:cinder_format_options}\\]$'
             }
             tag_on_failure => []
           }
         }
 
-        if [cinder_message] =~ /^Disk successfully formatted \(mkfs\):/ {
+        if [cinder_message] =~ /^Disk successfully formatted \\(mkfs\\):/ {
           grok {
             match => {
-              "cinder_message" => '^Disk successfully formatted \(mkfs\): %{DATA:cinder_mkfs_fs_type} - %{DATA:cinder_disk_path} %{GREEDYDATA:cinder_mount_path}$'
+              "cinder_message" => '^Disk successfully formatted \\(mkfs\\): %{DATA:cinder_mkfs_fs_type} - %{DATA:cinder_disk_path} %{GREEDYDATA:cinder_mount_path}$'
             }
             tag_on_failure => []
           }
@@ -656,10 +588,10 @@ logstashPipeline:
           }
         }
 
-        if [cinder_message] =~ /^Command env: \(/ {
+        if [cinder_message] =~ /^Command env: \\(/ {
           grok {
             match => {
-              "cinder_message" => '^Command env: \(%{GREEDYDATA:cinder_command_env}\)$'
+              "cinder_message" => '^Command env: \\(%{GREEDYDATA:cinder_command_env}\\)$'
             }
             tag_on_failure => []
           }
@@ -705,10 +637,10 @@ logstashPipeline:
           }
         }
 
-        if [cinder_message] =~ /^Args \(comma-delimited\): / {
+        if [cinder_message] =~ /^Args \\(comma-delimited\\): / {
           grok {
             match => {
-              "cinder_message" => '^Args \(comma-delimited\): %{GREEDYDATA:cinder_args_csv}$'
+              "cinder_message" => '^Args \\(comma-delimited\\): %{GREEDYDATA:cinder_args_csv}$'
             }
             tag_on_failure => []
           }
@@ -755,7 +687,10 @@ logstashPipeline:
           ]
         }
       }
+    }
 
+  30-filter-routing.conf: |
+    filter {
       ruby {
         code => '
           e = event.get("event")
@@ -796,106 +731,19 @@ logstashPipeline:
         '
       }
 
-      if [kind] == "Event" or [involvedObject][kind] {
-        mutate {
-          add_field => {
-            "service" => "kubernetes-events"
-            "service_name" => "kubernetes-events"
-            "event_dataset" => "kubernetes.events"
-          }
-          rename => {
-            "[metadata][namespace]" => "k8s_event_namespace"
-            "[type]" => "k8s_event_type"
-            "[reason]" => "k8s_event_reason"
-            "[message]" => "k8s_event_message"
-            "[count]" => "k8s_event_count"
-            "[involvedObject][kind]" => "k8s_event_object_kind"
-            "[involvedObject][name]" => "k8s_event_object_name"
-            "[involvedObject][namespace]" => "k8s_event_object_namespace"
-            "[involvedObject][fieldPath]" => "k8s_event_object_field_path"
-            "[source][component]" => "k8s_event_source_component"
-            "[source][host]" => "k8s_event_source_host"
-            "[reportingComponent]" => "k8s_event_reporting_component"
-            "[reportingInstance]" => "k8s_event_reporting_instance"
-            "[firstTimestamp]" => "k8s_event_first_timestamp"
-            "[lastTimestamp]" => "k8s_event_last_timestamp"
-            "[eventTime]" => "k8s_event_event_time"
-          }
-          convert => {
-            "k8s_event_count" => "integer"
-          }
-        }
-
-        ruby {
-          code => '
-            ns = event.get("k8s_event_namespace")
-            obj_ns = event.get("k8s_event_object_namespace")
-            obj_kind = event.get("k8s_event_object_kind")
-            obj_name = event.get("k8s_event_object_name")
-
-            if ns.nil? && obj_ns.is_a?(String) && !obj_ns.empty?
-              event.set("k8s_event_namespace", obj_ns)
-            end
-
-            if obj_kind.is_a?(String) && !obj_kind.empty? && obj_name.is_a?(String) && !obj_name.empty?
-              event.set("k8s_event_object", "#{obj_kind}/#{obj_name}")
-            elsif obj_kind.is_a?(String) && !obj_kind.empty?
-              event.set("k8s_event_object", obj_kind)
-            end
-
-            last_seen = event.get("k8s_event_last_timestamp") || event.get("k8s_event_event_time") || event.get("k8s_event_first_timestamp")
-            event.set("k8s_event_last_seen", last_seen) if last_seen
-          '
-        }
-
-        if [k8s_event_last_seen] {
-          date {
-            match => ["k8s_event_last_seen", "ISO8601"]
-            target => "@timestamp"
-            timezone => "UTC"
-          }
-        }
-
-        mutate {
-          remove_field => [
-            "metadata",
-            "involvedObject",
-            "source"
-          ]
-        }
-      }
-
       ruby {
         code => '
           service = event.get("service")
-          ns = event.get("[kubernetes][namespace_name]") || event.get("namespace_name")
-          pod = event.get("[kubernetes][pod_name]") || event.get("pod_name")
-          container = event.get("[kubernetes][container_name]") || event.get("container_name")
-          raw = event.get("event_original")
-          raw = raw.to_s if raw
+          ns = event.get("[kubernetes][namespace_name]")
+          pod = event.get("[kubernetes][pod_name]")
 
           route = nil
-          raw_cilium_envoy = raw && raw.match?(/"namespace_name":"kube-system".*"pod_name":"cilium-envoy(?:-[^"]+)?"/)
-          raw_cilium = raw && raw.match?(/"namespace_name":"kube-system".*"pod_name":"cilium-[^"]+"/) && !(raw && raw.match?(/"pod_name":"cilium-envoy(?:-[^"]+)?"/))
-          raw_cinder = raw && raw.match?(/"namespace_name":"kube-system".*"pod_name":"openstack-cinder-csi-nodeplugin-[^"]+"/)
-          raw_k8s_event = raw && raw.match?(/"kind":"Event"/)
-          is_k8s_event = (event.get("kind") == "Event") || !event.get("[involvedObject][kind]").nil? || raw_k8s_event
 
-          log_scope = event.get("log_scope")
-          kafka_topic = event.get("kafka_topic")
-          is_external = log_scope == "external" || (log_scope.is_a?(Array) && log_scope.include?("external")) || kafka_topic == "vm-logs-topic"
-
-          if is_external && ["frontend", "backend", "database", "webserver", "nestjs"].include?(service)
-            route = service
-          elsif is_external
-            route = "wk03-logs"
-          elsif is_k8s_event
-            route = "wk03-k8s-events"
-          elsif (ns == "kube-system" && pod.is_a?(String) && pod.start_with?("cilium-envoy")) || raw_cilium_envoy
+          if ns == "kube-system" && pod.is_a?(String) && pod.start_with?("cilium-envoy")
             route = "wk03-cilium-envoy"
-          elsif (ns == "kube-system" && pod.is_a?(String) && pod.start_with?("cilium-") && !pod.start_with?("cilium-envoy")) || raw_cilium
+          elsif ns == "kube-system" && pod.is_a?(String) && pod.start_with?("cilium-") && !pod.start_with?("cilium-envoy")
             route = "wk03-cilium"
-          elsif (ns == "kube-system" && pod.is_a?(String) && pod.start_with?("openstack-cinder-csi-nodeplugin-")) || raw_cinder
+          elsif ns == "kube-system" && pod.is_a?(String) && pod.start_with?("openstack-cinder-csi-nodeplugin-")
             route = "wk03-cinder-csi-nodeplugin"
           elsif ["frontend", "backend", "database", "webserver"].include?(service)
             route = service
@@ -918,6 +766,7 @@ logstashPipeline:
       }
     }
 
+  90-output.conf: |
     output {
       if [@metadata][route_target] == "frontend" {
         elasticsearch {
@@ -955,33 +804,6 @@ logstashPipeline:
           index => "dung-web-write"
         }
       }
-      else if [@metadata][route_target] == "nestjs" {
-        elasticsearch {
-          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
-          user => "elastic"
-          password => "1xNIfTEXaH0MsbQN"
-          ssl_certificate_verification => false
-          index => "dung-nestjs-write"
-        }
-      }
-      else if [@metadata][route_target] == "wk03-logs" {
-        elasticsearch {
-          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
-          user => "elastic"
-          password => "1xNIfTEXaH0MsbQN"
-          ssl_certificate_verification => false
-          index => "wk03-logs-write"
-        }
-      }
-      else if [@metadata][route_target] == "wk03-k8s-events" {
-        elasticsearch {
-          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
-          user => "elastic"
-          password => "1xNIfTEXaH0MsbQN"
-          ssl_certificate_verification => false
-          index => "wk03-k8s-events-write"
-        }
-      }
       else if [@metadata][route_target] == "wk03-cilium-envoy" {
         elasticsearch {
           hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
@@ -1009,4 +831,23 @@ logstashPipeline:
           index => "wk03-cinder-csi-nodeplugin-write"
         }
       }
+      else if [@metadata][route_target] == "wk03-logs" {
+        elasticsearch {
+          hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
+          user => "elastic"
+          password => "1xNIfTEXaH0MsbQN"
+          ssl_certificate_verification => false
+          index => "wk03-logs-write"
+        }
+      }
     }
+# Mount thư mục log của Node vào Logstash Pod để đọc trực tiếp container logs
+extraVolumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+
+extraVolumeMounts:
+  - name: varlog
+    mountPath: /var/log
+    readOnly: true

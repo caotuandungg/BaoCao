@@ -5,10 +5,6 @@ REPO_DIR="${REPO_DIR:-/opt/bocao-gitops}"
 LOG_GENERATORS_DIR="${REPO_DIR}/yaml_conf/vm-log-generators"
 NESTJS_LOG_APP_DIR="${REPO_DIR}/yaml_conf/vm-nestjs-log-app"
 FLUENT_BIT_DIR="${REPO_DIR}/yaml_conf/fluent-bit"
-KAFKA_CA_SRC="${REPO_DIR}/yaml_conf/kafka/my-cluster-ca.crt"
-FLUENT_BIT_CONF="/etc/fluent-bit/fluent-bit.conf"
-FLUENT_BIT_PARSERS="/etc/fluent-bit/vm-parsers.conf"
-FLUENT_BIT_KAFKA_CA="/etc/fluent-bit/kafka-ca.crt"
 
 if [ ! -d "$REPO_DIR/.git" ]; then
   echo "Repository is missing at ${REPO_DIR}."
@@ -25,10 +21,6 @@ if [ ! -f "${LOG_GENERATORS_DIR}/install-vm-log-generators.sh" ]; then
   exit 1
 fi
 
-if [ ! -f "${FLUENT_BIT_DIR}/vm-fluent-bit.conf" ]; then
-  echo "Missing ${FLUENT_BIT_DIR}/vm-fluent-bit.conf"
-  exit 1
-fi
 
 bash "${LOG_GENERATORS_DIR}/install-vm-log-generators.sh"
 
@@ -36,29 +28,8 @@ if [ -f "${NESTJS_LOG_APP_DIR}/install-vm-nestjs-log-app.sh" ]; then
   bash "${NESTJS_LOG_APP_DIR}/install-vm-nestjs-log-app.sh"
 fi
 
-install -d -m 0755 /etc/fluent-bit
-install -d -m 0755 /var/lib/fluent-bit/state
-install -m 0644 "${FLUENT_BIT_DIR}/vm-fluent-bit.conf" "$FLUENT_BIT_CONF"
-install -m 0644 "${FLUENT_BIT_DIR}/vm-parsers.conf" "$FLUENT_BIT_PARSERS"
-
-if [ -f "$KAFKA_CA_SRC" ]; then
-  install -m 0644 "$KAFKA_CA_SRC" "$FLUENT_BIT_KAFKA_CA"
-fi
-
-if grep -q "rdkafka.security.protocol ssl" "$FLUENT_BIT_CONF" && [ ! -f "$FLUENT_BIT_KAFKA_CA" ]; then
-  echo "Missing Kafka CA certificate for Fluent Bit:"
-  echo "  ${FLUENT_BIT_KAFKA_CA}"
-  echo "Expected to find it in the Git repository at:"
-  echo "  ${KAFKA_CA_SRC}"
-  exit 1
-fi
-
-systemctl enable fluent-bit
-systemctl restart fluent-bit
 
 echo "VM logging stack reconciled from Git."
 echo "Repo: ${REPO_DIR}"
 echo "Check:"
 echo "  systemctl status dung-fe-log-generator dung-be-log-generator dung-db-log-generator dung-web-log-generator dung-nestjs-log-app"
-echo "  systemctl status fluent-bit"
-echo "  journalctl -u fluent-bit -f"

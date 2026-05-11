@@ -1,0 +1,124 @@
+# Github config file:  https://github.com/fluent/helm-charts/blob/main/charts/fluent-bit/values.yaml
+
+
+
+
+[SERVICE]                                                   # Cau hinh chung cua tien trinh Fluent Bit tren VM
+    Flush                  2                                # Day/flush log moi 2 giay
+    Grace                  30                               # Cho toi da 30 giay de xu ly not log khi service dung
+    Daemon                 Off                              # Chay foreground de systemd quan ly tien trinh
+    Log_Level              info                             # Muc log cua ban than Fluent Bit
+    Parsers_File           /etc/fluent-bit/parsers.conf     # Nap parser mac dinh cua Fluent Bit
+    Parsers_File           /etc/fluent-bit/vm-parsers.conf  # Nap parser rieng cho log app tren VM
+    storage.path           /var/lib/fluent-bit/state        # Thu muc luu state va buffer filesystem
+    storage.sync           normal                           # Che do dong bo storage can bang hieu nang/an toan
+    storage.checksum       off                              # Tat checksum de giam overhead
+    storage.max_chunks_up  64                               # Gioi han so chunk duoc dua len memory cung luc
+    HTTP_Server            On                               # Bat HTTP server noi bo cho health/metrics
+    HTTP_Listen            0.0.0.0                          # Lang nghe HTTP tren moi interface
+    HTTP_Port              2020                             # Port health/metrics cua Fluent Bit
+
+[INPUT]                                                     # Input doc log frontend
+    Name              tail                                  # Dung tail plugin de theo doi file log
+    Tag               vm.dunglab.fe                         # Gan tag cho log frontend
+    Path              /var/log/dung-lab/fe.log              # Duong dan file log frontend
+    Parser            app_json                              # Parse moi dong log theo JSON parser app_json
+    Read_from_Head    On                                    # Doc tu dau file neu chua co offset cu
+    Refresh_Interval  5                                     # Kiem tra file/log moi moi 5 giay
+    Rotate_Wait       30                                    # Doi 30 giay khi file bi rotate
+    Mem_Buf_Limit     5MB                                   # Gioi han buffer memory cho input nay
+    Skip_Long_Lines   On                                    # Bo qua dong log qua dai
+    DB                /var/lib/fluent-bit/state/fe.db       # DB luu offset da doc cua fe.log
+    DB.locking        true                                  # Khoa DB de tranh truy cap dong thoi
+    storage.type      filesystem                            # Cho phep buffer xuong filesystem
+
+[INPUT]                                                     # Input doc log backend
+    Name              tail                                  # Dung tail plugin de theo doi file log
+    Tag               vm.dunglab.be                         # Gan tag cho log backend
+    Path              /var/log/dung-lab/be.log              # Duong dan file log backend
+    Parser            app_json                              # Parse moi dong log theo JSON parser app_json
+    Read_from_Head    On                                    # Doc tu dau file neu chua co offset cu
+    Refresh_Interval  5                                     # Kiem tra file/log moi moi 5 giay
+    Rotate_Wait       30                                    # Doi 30 giay khi file bi rotate
+    Mem_Buf_Limit     5MB                                   # Gioi han buffer memory cho input nay
+    Skip_Long_Lines   On                                    # Bo qua dong log qua dai
+    DB                /var/lib/fluent-bit/state/be.db       # DB luu offset da doc cua be.log
+    DB.locking        true                                  # Khoa DB de tranh truy cap dong thoi
+    storage.type      filesystem                            # Cho phep buffer xuong filesystem
+
+[INPUT]                                                     # Input doc log database
+    Name              tail                                  # Dung tail plugin de theo doi file log
+    Tag               vm.dunglab.db                         # Gan tag cho log database
+    Path              /var/log/dung-lab/db.log              # Duong dan file log database
+    Parser            app_json                              # Parse moi dong log theo JSON parser app_json
+    Read_from_Head    On                                    # Doc tu dau file neu chua co offset cu
+    Refresh_Interval  5                                     # Kiem tra file/log moi moi 5 giay
+    Rotate_Wait       30                                    # Doi 30 giay khi file bi rotate
+    Mem_Buf_Limit     5MB                                   # Gioi han buffer memory cho input nay
+    Skip_Long_Lines   On                                    # Bo qua dong log qua dai
+    DB                /var/lib/fluent-bit/state/db.db       # DB luu offset da doc cua db.log
+    DB.locking        true                                  # Khoa DB de tranh truy cap dong thoi
+    storage.type      filesystem                            # Cho phep buffer xuong filesystem
+
+[INPUT]                                                     # Input doc log webserver
+    Name              tail                                  # Dung tail plugin de theo doi file log
+    Tag               vm.dunglab.web                        # Gan tag cho log webserver
+    Path              /var/log/dung-lab/web.log             # Duong dan file log webserver
+    Parser            app_json                              # Parse moi dong log theo JSON parser app_json
+    Read_from_Head    On                                    # Doc tu dau file neu chua co offset cu
+    Refresh_Interval  5                                     # Kiem tra file/log moi moi 5 giay
+    Rotate_Wait       30                                    # Doi 30 giay khi file bi rotate
+    Mem_Buf_Limit     5MB                                   # Gioi han buffer memory cho input nay
+    Skip_Long_Lines   On                                    # Bo qua dong log qua dai
+    DB                /var/lib/fluent-bit/state/web.db      # DB luu offset da doc cua web.log
+    DB.locking        true                                  # Khoa DB de tranh truy cap dong thoi
+    storage.type      filesystem                            # Cho phep buffer xuong filesystem
+
+[INPUT]                                                     # Input doc log stdout cua NestJS
+    Name              tail                                  # Dung tail plugin de theo doi file log
+    Tag               vm.dunglab.nestjs                     # Gan tag cho log NestJS thuong
+    Path              /var/log/dung-lab/nestjs.log          # Duong dan file stdout log cua NestJS
+    Read_from_Head    On                                    # Doc tu dau file neu chua co offset cu
+    Refresh_Interval  5                                     # Kiem tra file/log moi moi 5 giay
+    Rotate_Wait       30                                    # Doi 30 giay khi file bi rotate
+    Mem_Buf_Limit     5MB                                   # Gioi han buffer memory cho input nay
+    Skip_Long_Lines   On                                    # Bo qua dong log qua dai
+    DB                /var/lib/fluent-bit/state/nestjs.db   # DB luu offset da doc cua nestjs.log
+    DB.locking        true                                  # Khoa DB de tranh truy cap dong thoi
+    storage.type      filesystem                            # Cho phep buffer xuong filesystem
+
+[INPUT]                                                     # Input doc log stderr/error cua NestJS
+    Name              tail                                  # Dung tail plugin de theo doi file log
+    Tag               vm.dunglab.nestjs.err                 # Gan tag cho log loi NestJS
+    Path              /var/log/dung-lab/nestjs.err.log      # Duong dan file stderr/error log cua NestJS
+    Read_from_Head    On                                    # Doc tu dau file neu chua co offset cu
+    Refresh_Interval  5                                     # Kiem tra file/log moi moi 5 giay
+    Rotate_Wait       30                                    # Doi 30 giay khi file bi rotate
+    Mem_Buf_Limit     5MB                                   # Gioi han buffer memory cho input nay
+    Skip_Long_Lines   On                                    # Bo qua dong log qua dai
+    DB                /var/lib/fluent-bit/state/nestjs-err.db # DB luu offset da doc cua nestjs.err.log
+    DB.locking        true                                  # Khoa DB de tranh truy cap dong thoi
+    storage.type      filesystem                            # Cho phep buffer xuong filesystem
+
+[FILTER]                                                    # Filter them metadata chung cho log VM
+    Name              modify                                # Dung modify filter de them/sua field
+    Match             vm.dunglab.*                          # Ap dung cho tat ca log co tag vm.dunglab.*
+    Add               log_source vm-dung-lab                # Them field nguon log la VM lab
+    Add               log_scope external                    # Danh dau day la log external ngoai Kubernetes
+    Add               vm_name simple-vm                     # Them ten VM sinh log
+    Add               environment lab                       # Them moi truong lab
+
+[OUTPUT]                                                    # Output day log VM sang Kafka
+    Name              kafka                                 # Dung Kafka output plugin
+    Match             vm.dunglab.*                          # Chi gui log co tag vm.dunglab.*
+    Brokers           dung-my-cluster-b0.kafka.vnpost.cloud:443 # Kafka external endpoint qua DNS/NGINX Ingress TLS passthrough
+    Topics            vm-logs-topic                         # Topic Kafka nhan log external tu VM
+    Format            json                                  # Gui record sang Kafka o dang JSON
+    Timestamp_Key     @timestamp                            # Ten field timestamp khi serialize output
+    Timestamp_Format  iso8601                               # Dinh dang timestamp ISO8601
+    Retry_Limit       False                                 # Retry vo han khi Kafka tam thoi loi
+    rdkafka.client.id fluent-bit-simple-vm                  # Client ID cua Fluent Bit khi ket noi Kafka
+    rdkafka.security.protocol ssl                           # Dung SSL/TLS de ket noi Kafka external
+    rdkafka.ssl.ca.location /etc/fluent-bit/kafka-ca.crt    # CA certificate de verify TLS certificate cua Kafka
+    rdkafka.request.required.acks 1                         # Yeu cau broker ack sau khi nhan message
+    storage.total_limit_size 50MB                           # Gioi han dung luong buffer output tren filesystem
