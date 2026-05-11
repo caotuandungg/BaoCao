@@ -21,7 +21,7 @@ vm-logs-topic
 
 ```text
 VM Fluent Bit
-  -> dung-my-cluster-b0.kafka.vnpost.cloud:443
+  -> dung-my-cluster-b0.kafka.vnpost.cloud:443 (*.kafka.vnpost.cloud)
   -> NGINX Ingress TLS passthrough
   -> TransportServer trong namespace kafka-dung
   -> Kafka external listener của my-cluster
