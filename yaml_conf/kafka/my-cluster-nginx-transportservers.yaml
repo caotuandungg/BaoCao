@@ -1,18 +1,18 @@
-# https://docs.nginx.com/nginx-ingress-controller/configuration/transportserver-resource/
+# # https://docs.nginx.com/nginx-ingress-controller/configuration/transportserver-resource/
 
-apiVersion: k8s.nginx.org/v1            # API của NGINX Ingress Controller
-kind: TransportServer                 # Loại tài nguyên dùng cho cân bằng tải lớp 4 (TCP/UDP/TLS)
-metadata:
-  name: my-cluster-kafka-broker-0-ts  # Tên định danh của TransportServer này
-  namespace: kafka-dung               # Không gian tên chứa tài nguyên
-spec:
-  listener:                           # Cấu hình bộ lắng nghe kết nối
-    name: tls-passthrough             # Tên listener
-    protocol: TLS_PASSTHROUGH         # Giao thức truyền tải TLS không giải mã (chuyển tiếp nguyên bản)
-  host: dung-my-cluster-b0.kafka.vnpost.cloud # Tên miền (FQDN) để truy cập vào Broker này
-  upstreams:                          # Cấu hình dịch vụ đích (Backend)
-    - name: broker-0-upstream         # Tên định danh của upstream
-      service: my-cluster-combined-external2-0 # Tên Service Kubernetes của Kafka Broker
-      port: 9095                      # Cổng dịch vụ Kafka đang lắng nghe (external port)
-  action:                             # Hành động thực hiện khi có kết nối đến
-    pass: broker-0-upstream           # Chuyển tiếp kết nối tới upstream đã định nghĩa ở trên
+# apiVersion: k8s.nginx.org/v1            # API của NGINX Ingress Controller
+# kind: TransportServer                 # Loại tài nguyên dùng cho cân bằng tải lớp 4 (TCP/UDP/TLS)
+# metadata:
+#   name: my-cluster-kafka-broker-0-ts  # Tên định danh của TransportServer này
+#   namespace: kafka-dung               # Không gian tên chứa tài nguyên
+# spec:
+#   listener:                           # Cấu hình bộ lắng nghe kết nối
+#     name: tls-passthrough             # Tên listener
+#     protocol: TLS_PASSTHROUGH         # Giao thức truyền tải TLS không giải mã (chuyển tiếp nguyên bản)
+#   host: dung-my-cluster-b0.kafka.vnpost.cloud # Tên miền (FQDN) để truy cập vào Broker này
+#   upstreams:                          # Cấu hình dịch vụ đích (Backend)
+#     - name: broker-0-upstream         # Tên định danh của upstream
+#       service: my-cluster-combined-external2-0 # Tên Service Kubernetes của Kafka Broker
+#       port: 9095                      # Cổng dịch vụ Kafka đang lắng nghe (external port)
+#   action:                             # Hành động thực hiện khi có kết nối đến
+#     pass: broker-0-upstream           # Chuyển tiếp kết nối tới upstream đã định nghĩa ở trên

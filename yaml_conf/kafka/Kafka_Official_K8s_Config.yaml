@@ -1,106 +1,106 @@
-# Nguồn tài liệu chính thức cho KRaft + Node Pools: https://strimzi.io/docs/operators/latest/overview.html#architecture-kraft-str
-# Lưu ý: Ở Strimzi 0.46+, KafkaNodePool là một loại tài nguyên (Kind) tách biệt.
+# # Nguồn tài liệu chính thức cho KRaft + Node Pools: https://strimzi.io/docs/operators/latest/overview.html#architecture-kraft-str
+# # Lưu ý: Ở Strimzi 0.46+, KafkaNodePool là một loại tài nguyên (Kind) tách biệt.
 
-apiVersion: kafka.strimzi.io/v1
-kind: Kafka
-metadata:
-  name: my-cluster
-  annotations:
-    # Kích hoạt tính năng Node Pools cho cụm này
-    strimzi.io/node-pools: "enabled"
-spec:
-  kafka:
-    version: 4.1.0
-    listeners:
-      - name: plain # luồng nội không mã hoá
-        port: 9092
-        type: internal
-        tls: false
-      - name: tls # luồng nội bộ có mã hoá
-        port: 9093
-        type: internal
-        tls: true
-      - name: external2 # external Kafka qua NGINX TLS passthrough
-        port: 9095
-        type: nodeport
-        tls: true
-        configuration:
-          brokers:
-            - broker: 0
-              advertisedHost: dung-my-cluster-b0.kafka.vnpost.cloud
-              advertisedPort: 443
-    config:
-      offsets.topic.replication.factor: 1
-      transaction.state.log.replication.factor: 1
-      transaction.state.log.min.isr: 1
-      # transaction: dich ra tieng viet la "giao dich" . transaction log: log giao dich
-      transaction.id.registry.storage.replication.factor: 1
-      default.replication.factor: 1
-      min.insync.replicas: 1
-      # Thêm cấu hình tự dọn dẹp ổ cứng
-      log.retention.bytes: 5368709120  # Giới hạn 5GB mỗi broker
-      log.retention.check.interval.ms: 300000 # 5 phút kiểm tra xóa 1 lần
+# apiVersion: kafka.strimzi.io/v1
+# kind: Kafka
+# metadata:
+#   name: my-cluster
+#   annotations:
+#     # Kích hoạt tính năng Node Pools cho cụm này
+#     strimzi.io/node-pools: "enabled"
+# spec:
+#   kafka:
+#     version: 4.1.0
+#     listeners:
+#       - name: plain # luồng nội không mã hoá
+#         port: 9092
+#         type: internal
+#         tls: false
+#       - name: tls # luồng nội bộ có mã hoá
+#         port: 9093
+#         type: internal
+#         tls: true
+#       - name: external2 # external Kafka qua NGINX TLS passthrough
+#         port: 9095
+#         type: nodeport
+#         tls: true
+#         configuration:
+#           brokers:
+#             - broker: 0
+#               advertisedHost: dung-my-cluster-b0.kafka.vnpost.cloud
+#               advertisedPort: 443
+#     config:
+#       offsets.topic.replication.factor: 1
+#       transaction.state.log.replication.factor: 1
+#       transaction.state.log.min.isr: 1
+#       # transaction: dich ra tieng viet la "giao dich" . transaction log: log giao dich
+#       transaction.id.registry.storage.replication.factor: 1
+#       default.replication.factor: 1
+#       min.insync.replicas: 1
+#       # Thêm cấu hình tự dọn dẹp ổ cứng
+#       log.retention.bytes: 5368709120  # Giới hạn 5GB mỗi broker
+#       log.retention.check.interval.ms: 300000 # 5 phút kiểm tra xóa 1 lần
 
-  entityOperator:
-    template:
-      pod:
-        affinity:
-          nodeAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms:
-                - matchExpressions:
-                    - key: kubernetes.io/hostname
-                      operator: In
-                      values:
-                        - wk03
-    topicOperator:
-      resources:
-        requests:
-          cpu: "200m"
-          memory: "256Mi"
-        limits:
-          cpu: "500m"
-          memory: "512Mi"
----
-# Khai báo Node Pool riêng biệt để thay thế cho Zookeeper (Chế độ KRaft)
-apiVersion: kafka.strimzi.io/v1
-kind: KafkaNodePool
-metadata:
-  name: combined
-  labels:
-    # Liên kết Node Pool này với cụm Kafka "my-cluster" ở trên
-    strimzi.io/cluster: my-cluster
-spec:
-  replicas: 1
-  template:
-    pod:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values:
-                      - wk03
-  roles:
-    - controller
-    - broker
-  storage:
-    type: jbod
-    volumes:
-      - id: 0
-        type: persistent-claim
-        size: 8Gi
-        class: csi-cinder-sc-delete
-        deleteClaim: false
-  resources:
-    requests:
-      cpu: "300m"
-      memory: "768Mi"
-    limits:
-      cpu: "800m"
-      memory: "1536Mi"
+#   entityOperator:
+#     template:
+#       pod:
+#         affinity:
+#           nodeAffinity:
+#             requiredDuringSchedulingIgnoredDuringExecution:
+#               nodeSelectorTerms:
+#                 - matchExpressions:
+#                     - key: kubernetes.io/hostname
+#                       operator: In
+#                       values:
+#                         - wk03
+#     topicOperator:
+#       resources:
+#         requests:
+#           cpu: "200m"
+#           memory: "256Mi"
+#         limits:
+#           cpu: "500m"
+#           memory: "512Mi"
+# ---
+# # Khai báo Node Pool riêng biệt để thay thế cho Zookeeper (Chế độ KRaft)
+# apiVersion: kafka.strimzi.io/v1
+# kind: KafkaNodePool
+# metadata:
+#   name: combined
+#   labels:
+#     # Liên kết Node Pool này với cụm Kafka "my-cluster" ở trên
+#     strimzi.io/cluster: my-cluster
+# spec:
+#   replicas: 1
+#   template:
+#     pod:
+#       affinity:
+#         nodeAffinity:
+#           requiredDuringSchedulingIgnoredDuringExecution:
+#             nodeSelectorTerms:
+#               - matchExpressions:
+#                   - key: kubernetes.io/hostname
+#                     operator: In
+#                     values:
+#                       - wk03
+#   roles:
+#     - controller
+#     - broker
+#   storage:
+#     type: jbod
+#     volumes:
+#       - id: 0
+#         type: persistent-claim
+#         size: 8Gi
+#         class: csi-cinder-sc-delete
+#         deleteClaim: false
+#   resources:
+#     requests:
+#       cpu: "300m"
+#       memory: "768Mi"
+#     limits:
+#       cpu: "800m"
+#       memory: "1536Mi"
 
 
 

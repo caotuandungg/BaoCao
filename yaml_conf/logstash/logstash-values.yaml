@@ -164,9 +164,9 @@ logstashPipeline:
           grok {
             match => {
               "message" => [
-                '^\\[%{TIMESTAMP_ISO8601:envoy_ts}\\]\\[%{NUMBER:envoy_thread}\\]\\[%{LOGLEVEL:envoy_level}\\]\\[%{DATA:envoy_module}\\] \\[%{DATA:envoy_source_file}:%{NUMBER:envoy_source_line}\\] %{GREEDYDATA:envoy_message}$',
-                '^\\[%{TIMESTAMP_ISO8601:envoy_ts}\\]\\[%{NUMBER:envoy_thread}\\]\\[%{LOGLEVEL:envoy_level}\\]\\[%{DATA:envoy_module}\\] %{GREEDYDATA:envoy_message}$',
-                '^\\[%{TIMESTAMP_ISO8601:envoy_ts}\\]\\[%{LOGLEVEL:envoy_level}\\]\\[%{DATA:envoy_module}\\] %{GREEDYDATA:envoy_message}$'
+                '^\[%{TIMESTAMP_ISO8601:envoy_ts}\]\[%{NUMBER:envoy_thread}\]\[%{LOGLEVEL:envoy_level}\]\[%{DATA:envoy_module}\] \[%{DATA:envoy_source_file}:%{NUMBER:envoy_source_line}\] %{GREEDYDATA:envoy_message}$',
+                '^\[%{TIMESTAMP_ISO8601:envoy_ts}\]\[%{NUMBER:envoy_thread}\]\[%{LOGLEVEL:envoy_level}\]\[%{DATA:envoy_module}\] %{GREEDYDATA:envoy_message}$',
+                '^\[%{TIMESTAMP_ISO8601:envoy_ts}\]\[%{LOGLEVEL:envoy_level}\]\[%{DATA:envoy_module}\] %{GREEDYDATA:envoy_message}$'
               ]
             }
             tag_on_failure => ["_cilium_envoy_parse_failure"]
@@ -468,9 +468,9 @@ logstashPipeline:
         grok {
           match => {
             "message" => [
-              '^(?<cinder_severity>[IWEF])(?<cinder_month>\\d{2})(?<cinder_day>\\d{2}) %{TIME:cinder_log_time}\\s+%{NUMBER:cinder_thread}\\s+%{DATA:cinder_source_file}:%{NUMBER:cinder_source_line}\\] "(?<cinder_event>[^"]+)"(?: %{GREEDYDATA:cinder_kv_text})?$',
-              '^(?<cinder_severity>[IWEF])(?<cinder_month>\\d{2})(?<cinder_day>\\d{2}) %{TIME:cinder_log_time}\\s+%{NUMBER:cinder_thread}\\s+%{DATA:cinder_source_file}:%{NUMBER:cinder_source_line}\\] %{GREEDYDATA:cinder_message}$',
-              '^(?<cinder_year>\\d{4})/(?<cinder_month>\\d{2})/(?<cinder_day>\\d{2}) %{TIME:cinder_log_time} %{GREEDYDATA:cinder_message}$'
+              '^(?<cinder_severity>[IWEF])(?<cinder_month>\d{2})(?<cinder_day>\d{2}) %{TIME:cinder_log_time}\s+%{NUMBER:cinder_thread}\s+%{DATA:cinder_source_file}:%{NUMBER:cinder_source_line}\] "(?<cinder_event>[^"]+)"(?: %{GREEDYDATA:cinder_kv_text})?$',
+              '^(?<cinder_severity>[IWEF])(?<cinder_month>\d{2})(?<cinder_day>\d{2}) %{TIME:cinder_log_time}\s+%{NUMBER:cinder_thread}\s+%{DATA:cinder_source_file}:%{NUMBER:cinder_source_line}\] %{GREEDYDATA:cinder_message}$',
+              '^(?<cinder_year>\d{4})/(?<cinder_month>\d{2})/(?<cinder_day>\d{2}) %{TIME:cinder_log_time} %{GREEDYDATA:cinder_message}$'
             ]
           }
           tag_on_failure => ["_cinder_klog_parse_failure"]
@@ -564,16 +564,16 @@ logstashPipeline:
         if [cinder_message] =~ /^Disk "/ {
           grok {
             match => {
-              "cinder_message" => '^Disk "%{DATA:cinder_disk_path}" appears to be unformatted, attempting to format as type: "%{DATA:cinder_fs_type}" with options: \\[%{DATA:cinder_format_options}\\]$'
+              "cinder_message" => '^Disk "%{DATA:cinder_disk_path}" appears to be unformatted, attempting to format as type: "%{DATA:cinder_fs_type}" with options: \[%{DATA:cinder_format_options}\]$'
             }
             tag_on_failure => []
           }
         }
 
-        if [cinder_message] =~ /^Disk successfully formatted \\(mkfs\\):/ {
+        if [cinder_message] =~ /^Disk successfully formatted \(mkfs\):/ {
           grok {
             match => {
-              "cinder_message" => '^Disk successfully formatted \\(mkfs\\): %{DATA:cinder_mkfs_fs_type} - %{DATA:cinder_disk_path} %{GREEDYDATA:cinder_mount_path}$'
+              "cinder_message" => '^Disk successfully formatted \(mkfs\): %{DATA:cinder_mkfs_fs_type} - %{DATA:cinder_disk_path} %{GREEDYDATA:cinder_mount_path}$'
             }
             tag_on_failure => []
           }
@@ -588,10 +588,10 @@ logstashPipeline:
           }
         }
 
-        if [cinder_message] =~ /^Command env: \\(/ {
+        if [cinder_message] =~ /^Command env: \(/ {
           grok {
             match => {
-              "cinder_message" => '^Command env: \\(%{GREEDYDATA:cinder_command_env}\\)$'
+              "cinder_message" => '^Command env: \(%{GREEDYDATA:cinder_command_env}\)$'
             }
             tag_on_failure => []
           }
@@ -637,10 +637,10 @@ logstashPipeline:
           }
         }
 
-        if [cinder_message] =~ /^Args \\(comma-delimited\\): / {
+        if [cinder_message] =~ /^Args \(comma-delimited\): / {
           grok {
             match => {
-              "cinder_message" => '^Args \\(comma-delimited\\): %{GREEDYDATA:cinder_args_csv}$'
+              "cinder_message" => '^Args \(comma-delimited\): %{GREEDYDATA:cinder_args_csv}$'
             }
             tag_on_failure => []
           }
