@@ -2,6 +2,15 @@
 
 replicas: 1
 
+# Single-node ES cannot become green while indices have replicas.
+# Mark the pod ready once primary shards are active so services/ingress work.
+clusterHealthCheckParams: "wait_for_status=yellow&timeout=1s"
+
+# The node currently holds many shards and Kibana queries can trigger async search
+# responses large enough to exhaust a 1 GiB JVM heap. Give ES a bit more heap
+# headroom while keeping the stack small enough for this worker node.
+esJavaOpts: "-Xms1536m -Xmx1536m"
+
 nodeSelector:
   kubernetes.io/hostname: wk03
 
@@ -11,7 +20,7 @@ resources:
     memory: "2Gi"
   limits:
     cpu: "1000m"
-    memory: "2Gi"
+    memory: "3Gi"
 
 volumeClaimTemplate:
   accessModes: ["ReadWriteOnce"]
@@ -24,4 +33,6 @@ esConfig:
   elasticsearch.yml: |
     xpack.security.enabled: true
     xpack.security.http.ssl.enabled: true
+    xpack.ml.enabled: false
+    ingest.geoip.downloader.enabled: false
 
