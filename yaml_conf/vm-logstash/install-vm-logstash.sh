@@ -77,14 +77,19 @@ systemctl daemon-reload
 # Neu package tao user logstash, gan owner cho cac file/thu muc ma service
 # can doc/ghi. Loi thuong gap neu thieu buoc nay:
 #   Path "/var/lib/logstash/queue" must be a writable directory.
+#   Path "/var/lib/logstash/dead_letter_queue" must be a writable directory.
 if id logstash >/dev/null 2>&1; then
   install -d -m 0750 -o logstash -g logstash /var/lib/logstash
   install -d -m 0750 -o logstash -g logstash /var/lib/logstash/queue
+  install -d -m 0750 -o logstash -g logstash /var/lib/logstash/dead_letter_queue
+  install -d -m 0750 -o logstash -g logstash /var/lib/logstash/plugins
   install -d -m 0750 -o logstash -g logstash /var/log/logstash
   chown logstash:logstash "$PIPELINE_DST"
 else
   install -d -m 0755 /var/lib/logstash
   install -d -m 0755 /var/lib/logstash/queue
+  install -d -m 0755 /var/lib/logstash/dead_letter_queue
+  install -d -m 0755 /var/lib/logstash/plugins
   install -d -m 0755 /var/log/logstash
 fi
 
