@@ -57,11 +57,15 @@ if [ ! -f "$ENV_FILE" ]; then
   cat > "$ENV_FILE" <<'ENV'
 # Runtime settings for dung VM Logstash.
 # Set VM_LOGSTASH_ES_HOST to an Elasticsearch endpoint reachable from this VM.
-VM_LOGSTASH_ES_HOST=https://elasticsearch-master.elk-dung.svc.cluster.local:9200
+VM_LOGSTASH_ES_HOST=https://elasticsearch-dung.vnpost.cloud
 VM_LOGSTASH_ES_USER=elastic
 VM_LOGSTASH_ES_PASSWORD=1xNIfTEXaH0MsbQN
 LS_JAVA_OPTS=-Xms512m -Xmx512m
 ENV
+elif grep -q '^VM_LOGSTASH_ES_HOST=https://elasticsearch-master\.elk-dung\.svc\.cluster\.local:9200$' "$ENV_FILE"; then
+  # Auto-migrate old default K8s-internal endpoint to the external Ingress
+  # endpoint. Other custom values are preserved.
+  sed -i 's#^VM_LOGSTASH_ES_HOST=.*#VM_LOGSTASH_ES_HOST=https://elasticsearch-dung.vnpost.cloud#' "$ENV_FILE"
 fi
 
 # Them systemd drop-in de service logstash nap file bien moi truong o tren.

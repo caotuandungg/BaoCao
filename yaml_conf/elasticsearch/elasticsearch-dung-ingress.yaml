@@ -1,0 +1,26 @@
+
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: elasticsearch-dung
+  namespace: elk-dung
+  annotations:
+    nginx.org/ssl-services: elasticsearch-master
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: elasticsearch-dung.vnpost.cloud
+      http:
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: elasticsearch-master
+                port:
+                  number: 9200
+  tls:
+    - hosts:
+        - elasticsearch-dung.vnpost.cloud
+      secretName: elasticsearch-master-certs

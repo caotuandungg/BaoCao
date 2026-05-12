@@ -1,4 +1,4 @@
-# # https://docs.nginx.com/nginx-ingress-controller/configuration/transportserver-resource/
+# https://docs.nginx.com/nginx-ingress-controller/configuration/transportserver-resource/
 
 # apiVersion: k8s.nginx.org/v1            # API của NGINX Ingress Controller
 # kind: TransportServer                 # Loại tài nguyên dùng cho cân bằng tải lớp 4 (TCP/UDP/TLS)
