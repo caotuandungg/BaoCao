@@ -74,13 +74,27 @@ EOF
 # Reload systemd de nhan drop-in moi.
 systemctl daemon-reload
 
-# Neu package tao user logstash, gan owner pipeline cho user do.
+# Neu package tao user logstash, gan owner cho cac file/thu muc ma service
+# can doc/ghi. Loi thuong gap neu thieu buoc nay:
+#   Path "/var/lib/logstash/queue" must be a writable directory.
 if id logstash >/dev/null 2>&1; then
+  install -d -m 0750 -o logstash -g logstash /var/lib/logstash
+  install -d -m 0750 -o logstash -g logstash /var/lib/logstash/queue
+  install -d -m 0750 -o logstash -g logstash /var/log/logstash
   chown logstash:logstash "$PIPELINE_DST"
+else
+  install -d -m 0755 /var/lib/logstash
+  install -d -m 0755 /var/lib/logstash/queue
+  install -d -m 0755 /var/log/logstash
 fi
 
-# Validate pipeline truoc khi restart service. Neu config sai, script dung tai day.
-/usr/share/logstash/bin/logstash --path.settings /etc/logstash --config.test_and_exit
+# Validate pipeline truoc khi restart service. Chay bang user logstash neu co
+# de bat dung cac loi permission giong luc systemd start.
+if id logstash >/dev/null 2>&1; then
+  runuser -u logstash -- /usr/share/logstash/bin/logstash --path.settings /etc/logstash --config.test_and_exit
+else
+  /usr/share/logstash/bin/logstash --path.settings /etc/logstash --config.test_and_exit
+fi
 
 # Bat service khoi dong cung VM va restart de apply pipeline moi.
 systemctl enable logstash
