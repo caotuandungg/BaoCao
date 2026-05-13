@@ -157,103 +157,10 @@ logstashPipeline:
       }
     }
 
-  11-filter-tetragon.conf: |
-    filter {
-      if [type] == "container" {
-        # Chuan hoa duong dan file log de dung chung o cac buoc sau
-        ruby {
-          code => '
-            source_path = event.get("path") || event.get("[log][file][path]") || event.get("[file][path]")
-            event.set("[@metadata][source_path]", source_path) if source_path
-          '
-        }
-
-        # Chi xu ly log tu tetragon va tetragon-operator trong kube-system
-        if [@metadata][source_path] =~ /_kube-system_(tetragon|tetragon-operator)-.*\.log$/ {
-          # Lay raw log goc de parse on dinh hon
-          ruby {
-            code => '
-              raw_message = event.get("[event][original]") || event.get("message")
-              event.set("[@metadata][raw_message]", raw_message) if raw_message
-            '
-          }
-
-          # Boc lop CRI ben ngoai, giu lai phan noi dung app
-          grok {
-            match => {
-              "[@metadata][raw_message]" => "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} %{GREEDYDATA:app_message}$"
-            }
-          }
-
-          # Suy ra service, level, msg va timestamp theo kieu tong quat cho tetragon
-          ruby {
-            code => '
-              source_path = event.get("[@metadata][source_path]")
-              if source_path
-                file_name = File.basename(source_path)
-                if file_name.include?("_kube-system_tetragon-operator-")
-                  event.set("service_name", "tetragon-operator")
-                elsif file_name.include?("_kube-system_tetragon-")
-                  event.set("service_name", "tetragon")
-                end
-              end
-
-              app_message = event.get("app_message")
-              raw = app_message.is_a?(String) && !app_message.empty? ? app_message : event.get("message")
-
-              if raw.is_a?(String)
-                if raw =~ /\blevel=(\w+)/i
-                  event.set("level", Regexp.last_match(1).downcase)
-                elsif raw =~ /\b(INFO|WARN|WARNING|ERROR|DEBUG|TRACE|FATAL)\b/i
-                  normalized = Regexp.last_match(1).downcase
-                  normalized = "warn" if normalized == "warning"
-                  event.set("level", normalized)
-                else
-                  stream = event.get("stream")
-                  event.set("level", stream == "stderr" ? "error" : "info")
-                end
-              end
-
-              level = event.get("level")
-              event.set("level", level.to_s.downcase) if level
-
-              if raw.is_a?(String)
-                if raw =~ /\bmsg="([^"]+)"/
-                  event.set("msg", Regexp.last_match(1))
-                elsif raw =~ /\bmsg=([^\s].*)/
-                  event.set("msg", Regexp.last_match(1).strip)
-                else
-                  event.set("msg", raw)
-                end
-              end
-
-              event.set("timestamp", event.get("cri_timestamp"))
-            '
-          }
-
-          # Don cac field phu sau khi parse xong
-          mutate {
-            remove_field => [
-              "message",
-              "app_message",
-              "cri_timestamp",
-              "cri_flags",
-              "path",
-              "host",
-              "type",
-              "event",
-              "@version",
-              "[@metadata][raw_message]"
-            ]
-          }
-        }
-      }
-    }
-
   12-filter-keep-selected.conf: |
     filter {
       # Chi giu lai cac nguon log da chon cho pipeline nay
-      if ![@metadata][source_path] or [@metadata][source_path] !~ /_kube-system_(cilium-agent|tetragon|tetragon-operator|export-stdout)-.*\.log$/ {
+      if ![@metadata][source_path] or [@metadata][source_path] !~ /_kube-system_(cilium-agent|export-stdout)-.*\.log$/ {
         drop { }
       }
     }
