@@ -1,5 +1,7 @@
 # https://github.com/elastic/helm-charts/blob/main/logstash/values.yaml (ctrl f search)
 # helm upgrade --install logstash-dung elastic/logstash -n elk-dung -f yaml_conf/logstash/logstash-values.yaml
+# kubectl rollout status statefulset/logstash-dung-logstash -n elk-dung --timeout=180s
+
 
 replicas: 1                          # Chỉ chạy 1 instance (đọc file log local trên Node)
 nodeSelector:                        # Pin lên Node wk03 (nơi chứa container logs)
@@ -79,8 +81,28 @@ logstashPipeline:
     filter {
       ruby {
         code => '
-          source_path = event.get("path") || event.get("[log][file][path]")
-          event.set("[@metadata][source_path]", source_path) if source_path
+          source_path = event.get("path") ||
+                        event.get("[log][file][path]") ||
+                        event.get("[file][path]")
+
+          if source_path.is_a?(String) && !source_path.empty?
+            event.set("[@metadata][source_path]", source_path)
+            basename = source_path.split("/").last
+            match = basename.match(/\A(?<pod>.+)_(?<namespace>[^_]+)_(?<container_full>.+)\.log\z/)
+
+            if match
+              event.set("[kubernetes][pod_name]", match[:pod])
+              event.set("[kubernetes][namespace_name]", match[:namespace])
+
+              container_full = match[:container_full]
+              container_name = container_full.sub(/-[0-9a-f]{64}\z/, "")
+              event.set("[kubernetes][container_name]", container_name)
+            else
+              event.tag("_filename_parse_failure")
+            end
+          else
+            event.tag("_filename_path_missing")
+          end
         '
       }
 
@@ -102,47 +124,33 @@ logstashPipeline:
         }
       }
 
-      grok {
-        match => {
-          "[@metadata][source_path]" => "/var/log/containers/%{DATA:_pod_name}_%{DATA:_namespace_name}_%{GREEDYDATA:_container_full_id}\\.log$"
-        }
-        tag_on_failure => ["_filename_parse_failure"]
-      }
-
       ruby {
         code => '
-          pn = event.get("_pod_name")
-          ns = event.get("_namespace_name")
-          cfid = event.get("_container_full_id")
-
-          event.set("[kubernetes][pod_name]", pn) if pn
-          event.set("[kubernetes][namespace_name]", ns) if ns
-
-          if cfid.is_a?(String)
-            idx = cfid.rindex("-")
-            if idx
-              event.set("[kubernetes][container_name]", cfid[0...idx])
-            else
-              event.set("[kubernetes][container_name]", cfid)
-            end
-          end
-
-          event.remove("_pod_name")
-          event.remove("_namespace_name")
-          event.remove("_container_full_id")
+          raw_message = event.get("log") || event.get("message")
+          event.set("[@metadata][raw_message]", raw_message) if raw_message.is_a?(String)
           event.remove("[@metadata][source_path]")
         '
       }
 
-      if ![service] and [log] =~ "^{.*}$" {
-        json {
-          source => "log"
-        }
+      if [kubernetes][container_name] in [
+        "apply-sysctl-overwrites",
+        "clean-cilium-state",
+        "config",
+        "install-cni-binaries",
+        "mount-bpf-fs",
+        "mount-cgroup",
+        "liveness-probe",
+        "node-driver-registrar",
+        "export-stdout"
+      ] {
+        drop {}
       }
 
-      if ![service] and [message] =~ "^{.*}$" {
+      if [message] =~ "^{.*}$" {
         json {
           source => "message"
+          target => "parsed_message"
+          skip_on_invalid_json => true
         }
       }
 
@@ -150,12 +158,73 @@ logstashPipeline:
         drop {}
       }
 
-      if "_filename_parse_failure" in [tags] {
+      if "_filename_parse_failure" in [tags] or "_filename_path_missing" in [tags] {
         drop {}
       }
 
       if [kubernetes][namespace_name] != "kube-system" {
         drop {}
+      }
+
+      ruby {
+        code => '
+          raw_message = event.get("[@metadata][raw_message]")
+          parsed_message = event.get("parsed_message")
+          level = nil
+          msg = nil
+
+          if parsed_message.is_a?(Hash)
+            level = parsed_message["level"] ||
+                    parsed_message["severity"] ||
+                    parsed_message["lvl"]
+
+            msg = parsed_message["msg"] ||
+                  parsed_message["message"] ||
+                  parsed_message["log"]
+          end
+
+          if raw_message.is_a?(String)
+            if level.nil?
+              level_match = raw_message.match(/\blevel=(?<level>[A-Za-z0-9_-]+)/)
+              level = level_match[:level] if level_match
+            end
+
+            if msg.nil?
+              quoted_msg_match = raw_message.match(/\bmsg="(?<msg>[^"]+)"/)
+              msg = quoted_msg_match[:msg] if quoted_msg_match
+            end
+
+            if msg.nil?
+              plain_msg_match = raw_message.match(/\bmsg=(?<msg>\S+)/)
+              msg = plain_msg_match[:msg] if plain_msg_match
+            end
+
+            msg = raw_message if msg.nil? || msg.empty?
+          end
+
+          if level.nil?
+            level = event.get("stream") == "stderr" ? "error" : "info"
+          end
+
+          event.set("level", level.to_s.downcase)
+          if msg
+            event.set("msg", msg)
+            event.set("message", msg)
+          end
+        '
+      }
+
+      mutate {
+        add_field => {
+          "timestamp" => "%{@timestamp}"
+        }
+        remove_field => [
+          "parsed_message",
+          "log",
+          "cri_timestamp",
+          "cri_flags",
+          "[@metadata][raw_message]"
+        ]
       }
     }
 

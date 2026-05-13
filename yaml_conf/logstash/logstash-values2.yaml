@@ -1,0 +1,352 @@
+# https://github.com/elastic/helm-charts/blob/main/logstash/values.yaml (ctrl f search)
+# https://www.elastic.co/docs/reference/logstash/event-api
+# helm upgrade --install logstash-dung elastic/logstash -n elk-dung -f yaml_conf/logstash/logstash-values.yaml
+# kubectl rollout status statefulset/logstash-dung-logstash -n elk-dung --timeout=180s
+
+
+replicas: 1                          # Chỉ chạy 1 instance (đọc file log local trên Node)
+nodeSelector:                        # Pin lên Node wk03 (nơi chứa container logs)
+  kubernetes.io/hostname: wk03
+
+podSecurityContext:
+  fsGroup: 0
+
+securityContext:
+  runAsUser: 0
+  runAsNonRoot: false
+
+resources:                           
+  requests:                          # Mức tài nguyên tối thiểu cần để khởi chạy
+    cpu: "500m"                      # 0.5 CPU
+    memory: "1536Mi"                 # 1.5 GB RAM
+  limits:                            # Mức tài nguyên tối đa Pod được phép sử dụng
+    cpu: "1000m"                     # 1 CPU
+    memory: "2500Mi"                 # 2.5 GB RAM
+
+logstashJavaOpts: "-Xms1536m -Xmx1536m" # Giảm heap để bớt chiếm RAM node nhưng vẫn đủ cho pipeline hiện tại
+
+readinessProbe:                      # Kiểm tra xem Pod đã sẵn sàng nhận log chưa (readiness)
+  httpGet:
+    path: /
+    port: 9600                       # Cổng API của Logstash
+  initialDelaySeconds: 120           # Đợi 120 giây sau khi start mới bắt đầu check
+  periodSeconds: 10                  # Tần suất kiểm tra: mỗi 10 giây
+  timeoutSeconds: 10                 # Thời gian chờ phản hồi tối đa 10 giây
+  failureThreshold: 12               # Thử lại tối đa 12 lần trước khi coi là không sẵn sàng
+
+livenessProbe:                       # Kiểm tra xem Pod còn sống không (nếu chết sẽ tự restart)
+  httpGet:
+    path: /
+    port: 9600
+  initialDelaySeconds: 180           # Đợi 180 giây trước khi bắt đầu check
+  periodSeconds: 20
+  timeoutSeconds: 10
+  failureThreshold: 6                # Thử lại 6 lần trước khi restart Pod
+
+persistence:                         # Cấu hình lưu trữ dữ liệu bền vững
+  enabled: true                      # Kích hoạt sử dụng ổ cứng (PVC)
+
+volumeClaimTemplate:                 # Khuôn mẫu yêu cầu cấp phát ổ cứng
+  accessModes: ["ReadWriteOnce"]     # Quyền truy cập: một Node có thể đọc/ghi
+  storageClassName: "csi-cinder-sc-delete" # Tên Storage Class của hệ thống (OpenStack Cinder)
+  resources:
+    requests:
+      storage: 5Gi                   # Dung lượng ổ cứng yêu cầu: 5 GB
+
+logstashConfig:                      # Cấu hình file logstash.yml bên trong Pod
+  logstash.yml: |
+    http.host: "0.0.0.0"             # Cho phép kết nối API từ bên ngoài
+    xpack.monitoring.enabled: false  # Tắt tính năng monitoring tự động của X-Pack
+    pipeline.workers: 1              # Số lượng luồng xử lý (worker threads) cho pipeline
+    pipeline.batch.size: 50          # Giảm batch để hạ memory spike khi filter/split
+    pipeline.batch.delay: 50         # Thời gian chờ tối đa (ms) trước khi xử lý một batch
+    queue.type: persisted           # Sử dụng hàng đợi trên ổ cứng để tránh mất log khi crash
+    queue.max_bytes: 256mb           # Giảm queue vì queue lớn đang chiếm thêm RAM/disk cache
+    dead_letter_queue.enable: false  # Tắt DLQ để giảm footprint, ưu tiên chạy gọn trên wk03
+
+logstashPipeline:
+  logstash.conf: ""
+  01-input.conf: |
+    input {
+      file {
+        path => "/var/log/containers/*.log"
+        exclude => ["*logstash-dung-logstash*"]
+        start_position => "beginning"
+        sincedb_path => "/usr/share/logstash/data/sincedb"
+        codec => plain
+        type => "container"
+      }
+    }
+
+  10-filter-cilium-agent.conf: |
+    filter {
+      if [type] == "container" {
+        # Chuan hoa duong dan file log de dung chung o cac buoc sau
+        ruby {
+          code => '
+            source_path = event.get("path") || event.get("[log][file][path]") || event.get("[file][path]")
+            event.set("[@metadata][source_path]", source_path) if source_path
+          '
+        }
+
+        # Chi xu ly log tu container cilium-agent trong namespace kube-system
+        if [@metadata][source_path] =~ /_kube-system_cilium-agent-.*\.log$/ {
+          # Lay raw log goc de parse on dinh hon
+          ruby {
+            code => '
+              raw_message = event.get("[event][original]") || event.get("message")
+              event.set("[@metadata][raw_message]", raw_message) if raw_message
+            '
+          }
+
+          # Boc lop CRI va tach cac field key=value chinh cua cilium-agent
+          grok {
+            match => {
+              "[@metadata][raw_message]" => [
+                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} time=%{TIMESTAMP_ISO8601:timestamp} level=%{WORD:level} msg=\"%{DATA:msg}\"(?: module=%{NOTSPACE:module})?(?: %{GREEDYDATA:extra_fields})?$",
+                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} %{GREEDYDATA:app_message}$"
+              ]
+            }
+          }
+
+          # Neu grok fallback thi dung kv de lay them cac field key=value
+          if ![timestamp] and [app_message] {
+            kv {
+              source => "app_message"
+              field_split_pattern => " (?=\\w+=)"
+              value_split => "="
+              trim_value => "\""
+              include_keys => ["time", "level", "module", "msg"]
+            }
+          }
+
+          # Gan ten service de Kibana nhin duoc theo nhom log
+          mutate {
+            add_field => {
+              "service_name" => "cilium-agent"
+            }
+          }
+
+          # Dong bo ten field thoi gian neu kv tra ve field time
+          if ![timestamp] and [time] {
+            mutate {
+              rename => {
+                "time" => "timestamp"
+              }
+            }
+          }
+
+          # Don cac field phu sau khi parse xong
+          mutate {
+            remove_field => [
+              "message",
+              "app_message",
+              "cri_timestamp",
+              "cri_flags",
+              "time",
+              "path",
+              "host",
+              "type",
+              "event",
+              "@version",
+              "extra_fields",
+              "[@metadata][raw_message]"
+            ]
+          }
+        }
+      }
+    }
+
+  11-filter-tetragon.conf: |
+    filter {
+      if [type] == "container" {
+        # Chuan hoa duong dan file log de dung chung o cac buoc sau
+        ruby {
+          code => '
+            source_path = event.get("path") || event.get("[log][file][path]") || event.get("[file][path]")
+            event.set("[@metadata][source_path]", source_path) if source_path
+          '
+        }
+
+        # Chi xu ly log tu tetragon va tetragon-operator trong kube-system
+        if [@metadata][source_path] =~ /_kube-system_(tetragon|tetragon-operator)-.*\.log$/ {
+          # Lay raw log goc de parse on dinh hon
+          ruby {
+            code => '
+              raw_message = event.get("[event][original]") || event.get("message")
+              event.set("[@metadata][raw_message]", raw_message) if raw_message
+            '
+          }
+
+          # Boc lop CRI ben ngoai, giu lai phan noi dung app
+          grok {
+            match => {
+              "[@metadata][raw_message]" => "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} %{GREEDYDATA:app_message}$"
+            }
+          }
+
+          # Suy ra service, level, msg va timestamp theo kieu tong quat cho tetragon
+          ruby {
+            code => '
+              source_path = event.get("[@metadata][source_path]")
+              if source_path
+                file_name = File.basename(source_path)
+                if file_name.include?("_kube-system_tetragon-operator-")
+                  event.set("service_name", "tetragon-operator")
+                elsif file_name.include?("_kube-system_tetragon-")
+                  event.set("service_name", "tetragon")
+                end
+              end
+
+              app_message = event.get("app_message")
+              raw = app_message.is_a?(String) && !app_message.empty? ? app_message : event.get("message")
+
+              if raw.is_a?(String)
+                if raw =~ /\blevel=(\w+)/i
+                  event.set("level", Regexp.last_match(1).downcase)
+                elsif raw =~ /\b(INFO|WARN|WARNING|ERROR|DEBUG|TRACE|FATAL)\b/i
+                  normalized = Regexp.last_match(1).downcase
+                  normalized = "warn" if normalized == "warning"
+                  event.set("level", normalized)
+                else
+                  stream = event.get("stream")
+                  event.set("level", stream == "stderr" ? "error" : "info")
+                end
+              end
+
+              level = event.get("level")
+              event.set("level", level.to_s.downcase) if level
+
+              if raw.is_a?(String)
+                if raw =~ /\bmsg="([^"]+)"/
+                  event.set("msg", Regexp.last_match(1))
+                elsif raw =~ /\bmsg=([^\s].*)/
+                  event.set("msg", Regexp.last_match(1).strip)
+                else
+                  event.set("msg", raw)
+                end
+              end
+
+              event.set("timestamp", event.get("cri_timestamp"))
+            '
+          }
+
+          # Don cac field phu sau khi parse xong
+          mutate {
+            remove_field => [
+              "message",
+              "app_message",
+              "cri_timestamp",
+              "cri_flags",
+              "path",
+              "host",
+              "type",
+              "event",
+              "@version",
+              "[@metadata][raw_message]"
+            ]
+          }
+        }
+      }
+    }
+
+  12-filter-keep-selected.conf: |
+    filter {
+      # Chi giu lai cac nguon log da chon cho pipeline nay
+      if ![@metadata][source_path] or [@metadata][source_path] !~ /_kube-system_(cilium-agent|tetragon|tetragon-operator|export-stdout)-.*\.log$/ {
+        drop { }
+      }
+    }
+
+  13-filter-tetragon-export.conf: |
+    filter {
+      if [type] == "container" {
+        # Chuan hoa duong dan file log de dung chung o cac buoc sau
+        ruby {
+          code => '
+            source_path = event.get("path") || event.get("[log][file][path]") || event.get("[file][path]")
+            event.set("[@metadata][source_path]", source_path) if source_path
+          '
+        }
+
+        # Chi xu ly log export-stdout cua tetragon trong kube-system
+        if [@metadata][source_path] =~ /_kube-system_export-stdout-.*\.log$/ {
+          # Lay raw log goc de parse on dinh hon
+          ruby {
+            code => '
+              raw_message = event.get("[event][original]") || event.get("message")
+              event.set("[@metadata][raw_message]", raw_message) if raw_message
+            '
+          }
+
+          # Boc lop CRI ben ngoai, giu lai payload JSON ben trong
+          grok {
+            match => {
+              "[@metadata][raw_message]" => "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} %{GREEDYDATA:app_message}$"
+            }
+          }
+
+          # Gan service va cac field chinh cho nhom log tetragon-export
+           ruby {
+             code => '
+               event.set("service_name", "tetragon-export")
+               event.set("timestamp", event.get("cri_timestamp"))
+               event.set("[kubernetes][hostname]", "wk03")
+ 
+               app_message = event.get("app_message")
+               raw = app_message.is_a?(String) && !app_message.empty? ? app_message : event.get("message")
+
+              if raw.is_a?(String)
+                event.set("msg", raw)
+              end
+
+              level = event.get("level")
+              if !level
+                stream = event.get("stream")
+                event.set("level", stream == "stderr" ? "error" : "info")
+              else
+                event.set("level", level.to_s.downcase)
+              end
+            '
+          }
+
+          # Don cac field phu sau khi parse xong
+          mutate {
+            remove_field => [
+              "message",
+              "app_message",
+              "cri_timestamp",
+              "cri_flags",
+              "path",
+              "host",
+              "type",
+              "event",
+              "@version",
+              "[@metadata][raw_message]"
+            ]
+          }
+        }
+      }
+    }
+
+  90-output.conf: |
+    output {
+      # Day toan bo log da duoc giu lai vao index kube-system chung
+      elasticsearch {
+        hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
+        user => "elastic"
+        password => "1xNIfTEXaH0MsbQN"
+        ssl_certificate_verification => false
+        index => "wk03-kube-system-write"
+      }
+    }
+# Mount thư mục log của Node vào Logstash Pod để đọc trực tiếp container logs
+extraVolumes:
+  - name: varlog
+    hostPath:
+      path: /var/log
+
+extraVolumeMounts:
+  - name: varlog
+    mountPath: /var/log
+    readOnly: true
