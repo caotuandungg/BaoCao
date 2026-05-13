@@ -9,3 +9,5 @@ kubectl scale kafkanodepool combined -n kafka-dung --replicas=1
 kubectl scale deploy strimzi-cluster-operator -n kafka-dung --replicas=0
 kubectl scale deploy my-cluster-entity-operator -n kafka-dung --replicas=0
 kubectl delete pod my-cluster-combined-0 -n kafka-dung
+
+xzczxcxzczx
