@@ -1,6 +1,6 @@
 # https://github.com/elastic/helm-charts/blob/main/logstash/values.yaml (ctrl f search)
 # https://www.elastic.co/docs/reference/logstash/event-api
-# helm upgrade --install logstash-dung elastic/logstash -n elk-dung -f yaml_conf/logstash/logstash-values.yaml
+# helm upgrade --install logstash-dung elastic/logstash -n elk-dung -f yaml_conf/logstash/logstash-values0.yaml
 # kubectl rollout status statefulset/logstash-dung-logstash -n elk-dung --timeout=180s
 
 
