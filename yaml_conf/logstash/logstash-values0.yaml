@@ -99,16 +99,10 @@ logstashPipeline:
             '
           }
 
-          # Boc lop CRI va tach cac field key=value chinh cua cilium-agent bang Grok
+          # Chi lay cac field chinh tu format Cilium don gian
           grok {
             match => {
-              "[@metadata][raw_message]" => [
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} time=%{TIMESTAMP_ISO8601:timestamp} level=%{WORD:level} msg=\"%{DATA:msg}\"(?: module=%{NOTSPACE:module})?(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} level=%{WORD:level} msg=\"%{DATA:msg}\"(?: module=%{NOTSPACE:module})?(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} time=%{TIMESTAMP_ISO8601:timestamp} level=%{WORD:level} module=%{NOTSPACE:module} msg=\"%{DATA:msg}\"(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} time=%{TIMESTAMP_ISO8601:timestamp} level=%{WORD:level} subsys=%{NOTSPACE:subsys} msg=\"%{DATA:msg}\"(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} %{GREEDYDATA:msg}$"
-              ]
+              "[@metadata][raw_message]" => "^%{TIMESTAMP_ISO8601:timestamp} %{WORD} %{WORD} %{DATA}level=%{WORD:level} msg=\"%{DATA:msg}\""
             }
           }
 
@@ -120,22 +114,6 @@ logstashPipeline:
             }
           }
 
-          # Don cac field phu sau khi parse xong
-          mutate {
-            remove_field => [
-              "message",
-              "cri_timestamp",
-              "cri_flags",
-              "time",
-              "path",
-              "host",
-              "type",
-              "event",
-              "@version",
-              "extra_fields",
-              "[@metadata][raw_message]"
-            ]
-          }
         }
       }
     }
@@ -145,16 +123,10 @@ logstashPipeline:
       if [type] == "container" {
         # Chi xu ly log tu container cilium-envoy trong namespace kube-system
         if [@metadata][source_path] =~ /_kube-system_cilium-envoy-.*\.log$/ {
-          # Boc lop CRI va tach log Envoy bang Grok
+          # Chi lay cac field chinh tu format Cilium Envoy don gian
           grok {
             match => {
-              "message" => [
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} \\[%{DATA:timestamp}\\]\\[%{NUMBER:envoy_thread}\\]\\[%{WORD:level}\\]\\[%{DATA:envoy_component}\\] \\[%{DATA:envoy_source}\\] %{GREEDYDATA:msg}$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} \\[%{DATA:timestamp}\\]\\[%{NUMBER:envoy_thread}\\]\\[%{WORD:level}\\]\\[%{DATA:envoy_component}\\] %{GREEDYDATA:msg}$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} \\[%{DATA:timestamp}\\] %{WORD:level} %{GREEDYDATA:msg}$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} %{IPORHOST:client_ip}:%{NUMBER:client_port} - - \\[%{DATA:http_timestamp}\\] \"%{WORD:http_method} %{DATA:url_path} HTTP/%{NUMBER:http_version}\" %{NUMBER:status_code} %{NUMBER:bytes} %{GREEDYDATA:msg}$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} %{GREEDYDATA:msg}$"
-              ]
+              "message" => "^%{TIMESTAMP_ISO8601:timestamp} %{WORD} %{WORD} \\[%{DATA}\\]\\[%{NUMBER}\\]\\[%{WORD:level}\\]\\[%{DATA}\\](?: \\[%{DATA}\\])? %{GREEDYDATA:msg}$"
             }
           }
 
@@ -197,14 +169,7 @@ logstashPipeline:
         if [@metadata][source_path] =~ /tetragon-vbwmt_kube-system_tetragon-2db7dc9332b38115d77744ef8d74b04f683b3aac70834ad147f5ead3904fb4e5\.log$/ {
           grok {
             match => {
-              "message" => [
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} level=%{WORD:level} msg=\"%{DATA:msg}\" name=%{NOTSPACE:policy_name} info=\"%{DATA:policy_info}\"(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} level=%{WORD:level} msg=\"%{DATA:msg}\" policy=%{NOTSPACE:policy_name} sensor=%{NOTSPACE:sensor} error=\"%{DATA:error_message}\"(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} level=%{WORD:level} msg=\"%{DATA:msg}\" sensor=%{NOTSPACE:sensor}(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} level=%{WORD:level} msg=\"%{DATA:msg}\" name=%{NOTSPACE:policy_name}(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} level=%{WORD:level} msg=\"%{DATA:msg}\"(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} %{GREEDYDATA:msg}$"
-              ]
+              "message" => "^%{TIMESTAMP_ISO8601:timestamp} %{WORD} %{WORD} level=%{WORD:level} msg=\"%{DATA:msg}\""
             }
           }
 
@@ -215,20 +180,6 @@ logstashPipeline:
               "tetragon_log_file" => "tetragon-2db7dc9332b38115d77744ef8d74b04f683b3aac70834ad147f5ead3904fb4e5"
               "[kubernetes][hostname]" => "wk03"
             }
-          }
-
-          mutate {
-            remove_field => [
-              "message",
-              "cri_timestamp",
-              "cri_flags",
-              "path",
-              "host",
-              "type",
-              "event",
-              "@version",
-              "extra_fields"
-            ]
           }
         }
       }
@@ -241,14 +192,7 @@ logstashPipeline:
         if [@metadata][source_path] =~ /tetragon-vbwmt_kube-system_tetragon-fafa0bab4f228294ff592f9bbe524511cec0c76d73518a40e80317f461311f3a\.log$/ {
           grok {
             match => {
-              "message" => [
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} level=%{WORD:level} msg=\"%{DATA:msg}\" name=%{NOTSPACE:policy_name} info=\"%{DATA:policy_info}\"(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} level=%{WORD:level} msg=\"%{DATA:msg}\" policy=%{NOTSPACE:policy_name} sensor=%{NOTSPACE:sensor} error=\"%{DATA:error_message}\"(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} level=%{WORD:level} msg=\"%{DATA:msg}\" sensor=%{NOTSPACE:sensor}(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} level=%{WORD:level} msg=\"%{DATA:msg}\" name=%{NOTSPACE:policy_name}(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} level=%{WORD:level} msg=\"%{DATA:msg}\"(?: %{GREEDYDATA:extra_fields})?$",
-                "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} %{GREEDYDATA:msg}$"
-              ]
+              "message" => "^%{TIMESTAMP_ISO8601:timestamp} %{WORD} %{WORD} level=%{WORD:level} msg=\"%{DATA:msg}\""
             }
           }
 
@@ -261,19 +205,6 @@ logstashPipeline:
             }
           }
 
-          mutate {
-            remove_field => [
-              "message",
-              "cri_timestamp",
-              "cri_flags",
-              "path",
-              "host",
-              "type",
-              "event",
-              "@version",
-              "extra_fields"
-            ]
-          }
         }
       }
     }
