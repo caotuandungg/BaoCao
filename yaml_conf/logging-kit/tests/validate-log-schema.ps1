@@ -75,44 +75,6 @@ function Test-StandardLog {
     }
   }
 
-  if (Has-Property $Record "log_scope") {
-    $allowed = @("internal", "external")
-    if ($Record.log_scope -notin $allowed) {
-      Add-Error $errors "Field 'log_scope' must be one of: $($allowed -join ', ')"
-    }
-  }
-
-  if (Has-Property $Record "log_schema") {
-    if (-not (Has-Property $Record.log_schema "name")) {
-      Add-Error $errors "Missing required field 'log_schema.name'"
-    } elseif ($Record.log_schema.name -ne "dung-standard-log") {
-      Add-Error $errors "Field 'log_schema.name' must be 'dung-standard-log'"
-    }
-
-    if (-not (Has-Property $Record.log_schema "version")) {
-      Add-Error $errors "Missing required field 'log_schema.version'"
-    } elseif ($Record.log_schema.version -ne "1.0") {
-      Add-Error $errors "Field 'log_schema.version' must be '1.0'"
-    }
-  }
-
-  if (Has-Property $Record "pipeline") {
-    if (-not (Has-Property $Record.pipeline "stage")) {
-      Add-Error $errors "Missing required field 'pipeline.stage'"
-    } else {
-      $allowed = @("raw", "parsed", "normalized", "enriched", "indexed")
-      if ($Record.pipeline.stage -notin $allowed) {
-        Add-Error $errors "Field 'pipeline.stage' must be one of: $($allowed -join ', ')"
-      }
-    }
-
-    if (-not (Has-Property $Record.pipeline "normalized")) {
-      Add-Error $errors "Missing required field 'pipeline.normalized'"
-    } elseif ($Record.pipeline.normalized -isnot [bool]) {
-      Add-Error $errors "Field 'pipeline.normalized' must be boolean"
-    }
-  }
-
   return $errors
 }
 

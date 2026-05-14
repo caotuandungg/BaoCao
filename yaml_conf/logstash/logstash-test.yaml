@@ -185,7 +185,7 @@ logstashPipeline:
   12-filter-keep-selected.conf: |
     filter {
       # Chi giu lai cac nguon log da chon cho pipeline nay
-      if ![@metadata][source_path] or [@metadata][source_path] !~ /_kube-system_(cilium-agent|cilium-envoy|tetragon|export-stdout)-.*\.log$/ {
+      if ![@metadata][source_path] or [@metadata][source_path] !~ /_kube-system_(cilium-agent|cilium-envoy|tetragon)-.*\.log$/ {
         drop { }
       }
     }
@@ -278,64 +278,64 @@ logstashPipeline:
       }
     }
 
-  15-filter-tetragon-export.conf: |
-    filter {
-      if [type] == "container" {
-        # Chi xu ly log export-stdout cua tetragon trong kube-system
-        if [@metadata][source_path] =~ /_kube-system_export-stdout-.*\.log$/ {
-          # Tetragon sinh log rat nhieu, drop 99% de demo
-          drop {
-            percentage => 99
-          }
-
-          # Boc lop CRI ben ngoai bang Grok, giu lai payload JSON/text ben trong
-          grok {
-            match => {
-              "message" => "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} %{GREEDYDATA:app_message}$"
-            }
-          }
-
-          # Gan service va cac field chinh cho nhom log tetragon-export 
-          mutate {
-            add_field => {
-              "service_name" => "tetragon-export"
-              "timestamp" => "%{cri_timestamp}"
-              "msg" => "%{app_message}"
-              "[kubernetes][hostname]" => "wk03"
-            }
-          }
-
-          if [stream] == "stderr" {
-            mutate {
-              add_field => {
-                "level" => "error"
-              }
-            }
-          } else {
-            mutate {
-              add_field => {
-                "level" => "info"
-              }
-            }
-          }
-
-          # Don cac field phu sau khi parse xong
-          mutate {
-            remove_field => [
-              "message",
-              "app_message",
-              "cri_timestamp",
-              "cri_flags",
-              "path",
-              "host",
-              "type",
-              "event",
-              "@version"
-            ]
-          }
-        }
-      }
-    }
+  # 15-filter-tetragon-export.conf: |
+  #   filter {
+  #     if [type] == "container" {
+  #       # Chi xu ly log export-stdout cua tetragon trong kube-system
+  #       if [@metadata][source_path] =~ /_kube-system_export-stdout-.*\.log$/ {
+  #         # Tetragon sinh log rat nhieu, drop 99% de demo
+  #         drop {
+  #           percentage => 99
+  #         }
+  #
+  #         # Boc lop CRI ben ngoai bang Grok, giu lai payload JSON/text ben trong
+  #         grok {
+  #           match => {
+  #             "message" => "^%{TIMESTAMP_ISO8601:cri_timestamp} %{WORD:stream} %{WORD:cri_flags} %{GREEDYDATA:app_message}$"
+  #           }
+  #         }
+  #
+  #         # Gan service va cac field chinh cho nhom log tetragon-export
+  #         mutate {
+  #           add_field => {
+  #             "service_name" => "tetragon-export"
+  #             "timestamp" => "%{cri_timestamp}"
+  #             "msg" => "%{app_message}"
+  #             "[kubernetes][hostname]" => "wk03"
+  #           }
+  #         }
+  #
+  #         if [stream] == "stderr" {
+  #           mutate {
+  #             add_field => {
+  #               "level" => "error"
+  #             }
+  #           }
+  #         } else {
+  #           mutate {
+  #             add_field => {
+  #               "level" => "info"
+  #             }
+  #           }
+  #         }
+  #
+  #         # Don cac field phu sau khi parse xong
+  #         mutate {
+  #           remove_field => [
+  #             "message",
+  #             "app_message",
+  #             "cri_timestamp",
+  #             "cri_flags",
+  #             "path",
+  #             "host",
+  #             "type",
+  #             "event",
+  #             "@version"
+  #           ]
+  #         }
+  #       }
+  #     }
+  #   }
 
   90-output.conf: |
     output {
@@ -348,7 +348,8 @@ logstashPipeline:
         index => "wk03-kube-system-write"
       }
     }
-# Mount thư mục log của Node vào Logstash Pod để đọc trực tiếp container logs
+
+# Mount thu muc log cua Node vao Logstash Pod de doc truc tiep container logs
 extraVolumes:
   - name: varlog
     hostPath:

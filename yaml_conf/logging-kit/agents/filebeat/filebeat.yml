@@ -16,21 +16,6 @@ processors:
       fields:
         service: "${SERVICE_NAME:payment-api}"
         environment: "${ENVIRONMENT:prod}"
-        tenant: "${TENANT:partner-a}"
-        log_scope: "${LOG_SCOPE:external}"
-        log_source: "${LOG_SOURCE:external-app}"
-  - add_fields:
-      target: "log_schema"
-      fields:
-        name: "${LOG_SCHEMA_NAME:dung-standard-log}"
-        version: "${LOG_SCHEMA_VERSION:1.0}"
-  - add_fields:
-      target: "pipeline"
-      fields:
-        stage: "normalized"
-        normalized: true
-        producer: "filebeat"
-        processed_by: ["filebeat"]
 
 output.kafka:
   hosts: ["${KAFKA_BROKERS:my-cluster-kafka-bootstrap.kafka-dung.svc:9092}"]

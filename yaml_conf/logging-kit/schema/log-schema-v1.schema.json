@@ -9,9 +9,7 @@
     "service",
     "environment",
     "level",
-    "message",
-    "log_schema",
-    "pipeline"
+    "message"
   ],
   "properties": {
     "@timestamp": {
@@ -37,71 +35,20 @@
       "type": "string",
       "minLength": 1
     },
-    "trace_id": {
+    "status_code": {
+      "type": "integer"
+    },
+    "endpoint": {
       "type": "string"
     },
-    "span_id": {
+    "path": {
       "type": "string"
     },
-    "request_id": {
+    "method": {
       "type": "string"
     },
-    "user_id": {
-      "type": "string"
-    },
-    "tenant": {
-      "type": "string"
-    },
-    "log_source": {
-      "type": "string"
-    },
-    "log_scope": {
-      "type": "string",
-      "enum": ["internal", "external"]
-    },
-    "vm_name": {
-      "type": "string"
-    },
-    "kafka_topic": {
-      "type": "string"
-    },
-    "log_schema": {
-      "type": "object",
-      "additionalProperties": true,
-      "required": ["name", "version"],
-      "properties": {
-        "name": {
-          "type": "string",
-          "const": "dung-standard-log"
-        },
-        "version": {
-          "type": "string",
-          "const": "1.0"
-        }
-      }
-    },
-    "pipeline": {
-      "type": "object",
-      "additionalProperties": true,
-      "required": ["stage", "normalized"],
-      "properties": {
-        "stage": {
-          "type": "string",
-          "enum": ["raw", "parsed", "normalized", "enriched", "indexed"]
-        },
-        "normalized": {
-          "type": "boolean"
-        },
-        "producer": {
-          "type": "string"
-        },
-        "processed_by": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
+    "duration_ms": {
+      "type": "integer"
     }
   }
 }

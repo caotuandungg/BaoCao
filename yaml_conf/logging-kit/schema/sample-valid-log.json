@@ -4,20 +4,5 @@
   "environment": "prod",
   "level": "INFO",
   "event": "payment_created",
-  "message": "Payment created successfully",
-  "request_id": "req-12345",
-  "tenant": "partner-a",
-  "log_source": "external-app",
-  "log_scope": "external",
-  "log_schema": {
-    "name": "dung-standard-log",
-    "version": "1.0"
-  },
-  "pipeline": {
-    "stage": "normalized",
-    "normalized": true,
-    "producer": "fluent-bit",
-    "processed_by": ["fluent-bit"]
-  }
+  "message": "Payment created successfully"
 }
-

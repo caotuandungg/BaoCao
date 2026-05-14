@@ -22,34 +22,16 @@
         "message": {
           "type": "text"
         },
-        "tenant": {
+        "status_code": {
+          "type": "integer"
+        },
+        "endpoint": {
           "type": "keyword"
         },
-        "log_scope": {
+        "path": {
           "type": "keyword"
         },
-        "log_source": {
-          "type": "keyword"
-        },
-        "kafka_topic": {
-          "type": "keyword"
-        },
-        "log_schema.name": {
-          "type": "keyword"
-        },
-        "log_schema.version": {
-          "type": "keyword"
-        },
-        "pipeline.stage": {
-          "type": "keyword"
-        },
-        "pipeline.normalized": {
-          "type": "boolean"
-        },
-        "pipeline.producer": {
-          "type": "keyword"
-        },
-        "pipeline.processed_by": {
+        "method": {
           "type": "keyword"
         }
       }

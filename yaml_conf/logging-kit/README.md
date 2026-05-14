@@ -1,12 +1,12 @@
 # Logging Onboarding Kit
 
-Bo kit nay dung de onboarding mot app/log source moi vao Log Center.
+Bo kit nay dung de onboarding mot app/log source moi vao Log Center voi schema JSON toi gian.
 
 Muc tieu:
 
-- Co mot log schema chung, doc lap voi agent.
+- Co mot log schema chung, de doc va de validate.
 - App/doi tac co the dung Fluent Bit, Filebeat, Vector, hoac Logstash.
-- Agent chi can parse/enrich nhe va gui log vao Kafka gateway.
+- Agent doc log JSON tu file va gui vao Kafka gateway.
 - Log Center noi bo validate/route log ve Elasticsearch index phu hop.
 
 Pipeline khuyen nghi:
@@ -36,17 +36,9 @@ agents/vector/vector.toml
 agents/logstash/partner-to-kafka.conf
 ```
 
-## Nguyen tac
+## Schema toi gian
 
-Log format/schema la chuan chung. Agent config chi la cach doc va gui log theo chuan do.
-
-Khong tao 4 format rieng cho 4 agent. Chi co 1 schema:
-
-```text
-log-schema-v1
-```
-
-Moi agent deu phai tao output JSON co cac field bat buoc:
+Moi log event can co cac field bat buoc:
 
 ```text
 @timestamp
@@ -54,35 +46,30 @@ service
 environment
 level
 message
-log_schema.version
-pipeline.stage
 ```
 
-## Field chong xu ly trung
+Field optional hay dung:
 
-Moi log event nen co:
+```text
+event
+status_code
+endpoint
+path
+method
+duration_ms
+```
+
+Vi du log hop le:
 
 ```json
 {
-  "log_schema": {
-    "name": "dung-standard-log",
-    "version": "1.0"
-  },
-  "pipeline": {
-    "stage": "normalized",
-    "normalized": true,
-    "processed_by": ["partner-agent"]
-  }
+  "@timestamp": "2026-05-07T02:00:00Z",
+  "service": "payment-api",
+  "environment": "prod",
+  "level": "INFO",
+  "event": "payment_created",
+  "message": "Payment created successfully"
 }
-```
-
-Logstash noi bo se nhin field nay de tranh parse/normalize lai nhieu lan.
-
-## Topic khuyen nghi
-
-```text
-vm-logs-topic      log external tu VM/app ben ngoai
-dung-logs-topic    log internal tu k8s/node/core services
 ```
 
 ## Cach dung nhanh voi Fluent Bit
@@ -100,14 +87,17 @@ dung-logs-topic    log internal tu k8s/node/core services
 ```text
 agents/fluent-bit/fluent-bit.conf
 agents/fluent-bit/parsers.conf
+agents/fluent-bit/enrich.lua
 ```
 
-4. Kiem tra output trong Kafka co field:
+4. Kiem tra output trong Kafka co cac field:
 
 ```text
-log_schema.version=1.0
-pipeline.stage=normalized
-service=<service-name>
+@timestamp
+service
+environment
+level
+message
 ```
 
 ## Trach nhiem
@@ -121,8 +111,6 @@ Ben Log Center:
 
 Ben tich hop/doi tac:
 
-- App log dung schema.
+- App log dung schema toi gian.
 - Agent doc log va gui vao Kafka dung topic.
 - Khong tu route vao Elasticsearch noi bo cua Log Center.
-- Gan metadata `log_schema` va `pipeline`.
-
