@@ -59,7 +59,7 @@ if [ ! -f "$ENV_FILE" ]; then
 # Set VM_LOGSTASH_ES_HOST to an Elasticsearch endpoint reachable from this VM.
 VM_LOGSTASH_ES_HOST=https://elasticsearch-dung.vnpost.cloud:443
 VM_LOGSTASH_ES_USER=elastic
-VM_LOGSTASH_ES_PASSWORD=1xNIfTEXaH0MsbQN
+VM_LOGSTASH_ES_PASSWORD=x3RoYGlD=X9fhf6am2iG
 LS_JAVA_OPTS=-Xms512m -Xmx512m
 ENV
 elif grep -q '^VM_LOGSTASH_ES_HOST=https://elasticsearch-master\.elk-dung\.svc\.cluster\.local:9200$' "$ENV_FILE"; then
