@@ -1,14 +1,10 @@
-# Elasticsearch values (minimal) for personal logging stack on wk03
-
+# helm chart:  https://github.com/elastic/helm-charts/blob/main/elasticsearch/values.yaml
 replicas: 1
 
-# Single-node ES cannot become green while indices have replicas.
-# Mark the pod ready once primary shards are active so services/ingress work.
+# Cho Helm chờ ES đạt trạng thái yellow tối đa 1 giây.
 clusterHealthCheckParams: "wait_for_status=yellow&timeout=1s"
 
-# The node currently holds many shards and Kibana queries can trigger async search
-# responses large enough to exhaust a 1 GiB JVM heap. Give ES a bit more heap
-# headroom while keeping the stack small enough for this worker node.
+# Cấp RAM heap JVM cho Elasticsearch: tối thiểu/tối đa 1536MB.
 esJavaOpts: "-Xms1536m -Xmx1536m"
 
 nodeSelector:
@@ -23,16 +19,23 @@ resources:
     memory: "3Gi"
 
 volumeClaimTemplate:
+  # Chỉ cho một node/pod mount ổ tại một thời điểm.
   accessModes: ["ReadWriteOnce"]
+  # Chọn SC để cấp ổ
   storageClassName: "csi-cinder-sc-delete"
   resources:
     requests:
       storage: 10Gi
 
+# Ghi thêm cấu hình vào file elasticsearch.yml trong pod.
 esConfig:
   elasticsearch.yml: |
+    # Bật xác thực user/password cho Elasticsearch.
     xpack.security.enabled: true
+    # Bật HTTPS cho API Elasticsearch.
     xpack.security.http.ssl.enabled: true
+    # Tắt Machine Learning để tiết kiệm tài nguyên.
     xpack.ml.enabled: false
+    # Tắt tự tải GeoIP database.
     ingest.geoip.downloader.enabled: false
 

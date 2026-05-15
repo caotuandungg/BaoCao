@@ -1,26 +1,26 @@
 # https://docs.nginx.com/nginx-ingress-controller/configuration/ingress-resources/basic-configuration/
 
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: networking.k8s.io/v1  
+kind: Ingress                     
 metadata:
-  name: elasticsearch-dung
-  namespace: elk-dung
+  name: elasticsearch-dung         
+  namespace: elk-dung              
   annotations:
-    nginx.org/ssl-services: elasticsearch-master
+    nginx.org/ssl-services: elasticsearch-master # Backend service dung HTTPS
 spec:
-  ingressClassName: nginx
+  ingressClassName: nginx          
   rules:
-    - host: elasticsearch-dung.vnpost.cloud
+    - host: elasticsearch-dung.vnpost.cloud # Domain truy cap Elasticsearch
       http:
         paths:
-          - path: /
-            pathType: ImplementationSpecific
+          - path: /                # Match tat ca request tu root
+            pathType: Prefix # Cach match do Ingress controller quyet dinh
             backend:
               service:
-                name: elasticsearch-master
+                name: elasticsearch-master # Service Elasticsearch noi bo (hien tai do helm tao ra)
                 port:
-                  number: 9200
+                  number: 9200     # Port Elasticsearch
   tls:
     - hosts:
-        - elasticsearch-dung.vnpost.cloud
-      secretName: elasticsearch-master-certs
+        - elasticsearch-dung.vnpost.cloud # Domain dung TLS , phuc vu cho viec ket noi https
+      secretName: elasticsearch-master-certs # Secret chua certificate TLS , phuc vu cho viec ket noi https

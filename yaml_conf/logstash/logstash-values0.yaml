@@ -274,7 +274,7 @@ logstashPipeline:
       elasticsearch {
         hosts => ["https://elasticsearch-master.elk-dung.svc.cluster.local:9200"]
         user => "elastic"
-        password => "1xNIfTEXaH0MsbQN"
+        password => "x3RoYGlD=X9fhf6am2iG"
         ssl_certificate_verification => false
         index => "wk03-kube-system-write"
       }

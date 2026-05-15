@@ -1,5 +1,5 @@
 # Cấu hình Kibana Logging - High Availability (HA)
-# File này dùng để chạy lệnh: helm upgrade kibana-dung elastic/kibana -f kibana-logging-values.yaml --namespace elk
+# helm upgrade kibana-dung elastic/kibana -f kibana-logging-values.yaml --namespace elk
 
 elasticsearchHosts: "https://elasticsearch-master.elk-dung.svc:9200"
 

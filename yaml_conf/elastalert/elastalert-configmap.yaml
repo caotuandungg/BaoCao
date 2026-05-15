@@ -12,7 +12,7 @@ data:
     # verify_certs: false cho phép kết nối ngay cả khi Elasticsearch dùng chứng chỉ tự ký (Self-signed)
     verify_certs: false
     es_username: elastic
-    es_password: "1xNIfTEXaH0MsbQN"
+    es_password: "x3RoYGlD=X9fhf6am2iG"
     rules_folder: /opt/elastalert/rules
     run_every:
       minutes: 1
