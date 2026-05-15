@@ -4,7 +4,7 @@ set -euo pipefail
 # Resolve path cua thu muc script trong Git repo va cac duong dan runtime
 # se duoc cai tren VM.
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PIPELINE_SRC="${SOURCE_DIR}/vm-logstash.conf"
+PIPELINE_SRC="${SOURCE_DIR}/vm-logstash2.conf"
 PIPELINE_DST="/etc/logstash/conf.d/dung-vm-logstash.conf"
 ENV_FILE="/etc/default/dung-vm-logstash"
 SERVICE_OVERRIDE_DIR="/etc/systemd/system/logstash.service.d"
