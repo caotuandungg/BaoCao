@@ -1,17 +1,17 @@
-# VM GitOps
+# GitOps trên máy ảo (VM GitOps)
 
-This folder makes the VM reconcile its local logging stack from Git:
+Thư mục này giúp máy ảo tự động đồng bộ (reconcile) hệ thống logging cục bộ từ Git:
 
 ```text
-GitHub repo
-  -> VM clone at /opt/bocao-gitops
-  -> 4 Python log generators as systemd services
-  -> Fluent Bit config under /etc/fluent-bit
-  -> Fluent Bit tails /var/log/dung-lab/*.log
-  -> Fluent Bit prints parsed logs to stdout for local validation
+Kho chứa GitHub (GitHub repo)
+  -> Được clone về máy ảo tại thư mục /opt/bocao-gitops
+  -> 4 bộ giả lập sinh log bằng Python chạy dưới dạng systemd services
+  -> Cấu hình Fluent Bit nằm ở thư mục /etc/fluent-bit
+  -> Fluent Bit liên tục đọc log tại /var/log/dung-lab/*.log
+  -> Fluent Bit in các log đã được phân tích ra màn hình (stdout) để kiểm tra
 ```
 
-One-time install on the VM:
+Cài đặt lần đầu tiên trên máy ảo:
 
 ```bash
 sudo apt-get update
@@ -21,26 +21,26 @@ cd /opt/bocao-gitops
 sudo bash yaml_conf/vm-gitops/install-gitops-puller.sh
 ```
 
-Manual reconcile:
+Cập nhật mã nguồn thủ công (Kéo code bằng tay):
 
 ```bash
 sudo systemctl start bocao-vm-gitops.service
 ```
 
-Watch reconcile logs:
+Xem nhật ký quá trình tự động kéo code:
 
 ```bash
 journalctl -u bocao-vm-gitops.service -f
 ```
 
-Check the timer:
+Kiểm tra trạng thái bộ đếm giờ (Timer):
 
 ```bash
 systemctl status bocao-vm-gitops.timer
 systemctl list-timers bocao-vm-gitops.timer
 ```
 
-Check generated app logs:
+Kiểm tra log do các ứng dụng giả lập sinh ra:
 
 ```bash
 tail -f /var/log/dung-lab/fe.log
@@ -49,9 +49,26 @@ tail -f /var/log/dung-lab/db.log
 tail -f /var/log/dung-lab/web.log
 ```
 
-Check Fluent Bit:
+Kiểm tra trạng thái Fluent Bit:
 
 ```bash
 systemctl status fluent-bit
 journalctl -u fluent-bit -f
+```
+
+## Quản lý cơ chế GitOps tự động kéo code
+
+Để vô hiệu hóa hoàn toàn (TẮT) cơ chế GitOps tự động kéo code:
+
+```bash
+sudo systemctl stop bocao-vm-gitops.timer
+sudo systemctl stop bocao-vm-gitops.service
+sudo systemctl disable bocao-vm-gitops.timer
+```
+
+Để kích hoạt lại (BẬT) cơ chế GitOps tự động kéo code:
+
+```bash
+sudo systemctl enable --now bocao-vm-gitops.timer
+sudo systemctl start bocao-vm-gitops.service
 ```

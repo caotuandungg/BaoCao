@@ -1,11 +1,13 @@
+# https://docs.nginx.com/nginx-ingress-controller/configuration/ingress-resources/basic-configuration/
+
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: kibana-dung
   namespace: elk-dung
   annotations:
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.org/proxy-read-timeout: "300"
+    nginx.org/proxy-send-timeout: "300"
 spec:
   ingressClassName: nginx
   rules:
